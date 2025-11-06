@@ -1,0 +1,46 @@
+# Nextflow runtime
+.work/           # if you changed work dir name, match it
+work/
+.nextflow/
+.nextflow.log
+.cache/
+.trace/
+timeline.html
+report.html
+dag.png
+
+# Outputs and large data
+results/
+data/
+cogs/
+gbff_assemblies/
+genomes/
+proteomes/
+mappings/
+*.zip
+*.fa
+*.fa.gz
+*.hmm
+*.prot
+*.result
+*.map
+*_oriented
+*_sector
+*_presence_binary_data_*
+all_mappings.map
+dataframe.tsv
+itol_*.txt
+protein_to_organism_map.tsv
+assemblies_to_download
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
