@@ -44,26 +44,49 @@ print(f"Creating presence_binary_data_fromTSV_{formatted_evalue}...")
 
 ncbi = NCBITaxa()
 
-def process_gbff(input_file: str, locus_to_gene: Dict[str, str]):
+# Determine COG of interest and its locus_tags before scanning GBFFs
+def parse_cogs(cogs_str: str) -> List[str]:
+    if not cogs_str:
+        return []
+    return [c.strip() for c in cogs_str.split(',') if c.strip()]
+
+gene_list: List[str] = []
+if args.gene_list:
+    gene_list = list(args.gene_list)
+if not gene_list and args.cogs:
+    gene_list = parse_cogs(args.cogs)
+if not gene_list:
+    raise SystemExit("You must provide --gene_list or --cogs")
+
+cog_of_interest = gene_list[0]
+locus_tags_cog_list = df_filtrado[df_filtrado["gene"].str.lower() == cog_of_interest.lower()]["locus_tag"].unique().tolist()
+locus_goi_set = set([lt.lower() for lt in locus_tags_cog_list])
+
+def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: set):
     records = list(SeqIO.parse(input_file, "genbank"))
     if not records:
         return None
 
-    all_genes: List[Tuple[int, int, int, str, str]] = []
-    genome_length = 0
+    best_contig_genes: List[Tuple[int, int, int, str, str]] = []
+    best_contig_len = 0
     taxid = None
     isolate = "NA"
 
+    # choose only the contig that contains the GOI; if multiple, pick the one with more genes
     for record in records:
+        contig_genes: List[Tuple[int, int, int, str, str]] = []
+        contains_goi = False
+        local_taxid = None
+        local_isolate = "NA"
+
         for feature in record.features:
             if feature.type == "source":
                 db_xrefs = feature.qualifiers.get("db_xref", [])
-                isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_")
+                local_isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_")
                 for xref in db_xrefs:
                     if xref.startswith("taxon:"):
-                        taxid = xref.split(":")[1]
+                        local_taxid = xref.split(":")[1]
                         break
-
             if feature.type == "CDS":
                 locus_tag = feature.qualifiers.get("locus_tag", [""])[0]
                 if not locus_tag:
@@ -72,12 +95,17 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str]):
                 end = int(feature.location.end)
                 strand = int(feature.location.strand)
                 gene_name = locus_to_gene.get(locus_tag, locus_tag)
-                all_genes.append((start, end, strand, gene_name, locus_tag))
+                contig_genes.append((start, end, strand, gene_name, locus_tag))
+                if locus_tag.lower() in locus_goi_set:
+                    contains_goi = True
 
-        if any(g[4] in locus_to_gene for g in all_genes):
-            genome_length += len(record.seq)
+        if contains_goi and len(contig_genes) > len(best_contig_genes):
+            best_contig_genes = contig_genes
+            best_contig_len = len(record.seq)
+            taxid = local_taxid
+            isolate = local_isolate
 
-    if not all_genes or not taxid:
+    if not best_contig_genes or not taxid:
         return None
 
     # Resolve species name from taxid
@@ -95,14 +123,14 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str]):
         species_name = "Unknown"
 
     header = f"{species_taxid[0]}|{species_name}|{isolate}"
-    return (header, genome_length, all_genes)
+    return (header, best_contig_len, best_contig_genes)
 
 # Sequential processing (Nextflow manages parallelism across tasks if needed)
 files = [os.path.join(args.input_dir, f) for f in os.listdir(args.input_dir) if f.endswith(".gbff")]
 
 genomes_data_binary_raw = []
 for gbff in files:
-    result = process_gbff(gbff, locus_to_gene)
+    result = process_gbff(gbff, locus_to_gene, locus_goi_set)
     if result is not None:
         genomes_data_binary_raw.append(result)
 
@@ -126,25 +154,7 @@ print("Creating reflect synteny...")
 import ast
 
 # Definition of cog_of_interest-------------------------------------------
-def parse_cogs(cogs_str: str) -> List[str]:
-    if not cogs_str:
-        return []
-    return [c.strip() for c in cogs_str.split(',') if c.strip()]
-
-# Build gene list
-gene_list: List[str] = []
-if args.gene_list:
-    gene_list = list(args.gene_list)
-if not gene_list and args.cogs:
-    gene_list = parse_cogs(args.cogs)
-if not gene_list:
-    raise SystemExit("You must provide --gene_list or --cogs")
-
-# Creates a list with all the locus tag of the cog of interest
-cog_of_interest = gene_list[0]
 print(f"cog_of_interest: {cog_of_interest}")
-locus_tags_cog_list = df_filtrado[df_filtrado["gene"].str.lower() == cog_of_interest.lower()]["locus_tag"].unique().tolist()
-print(locus_tags_cog_list)
 #locustag_of_interest = locus_tag_cog_dic.get(cog_of_interest, None)
 #print(locustag_of_interest)
 
@@ -184,7 +194,7 @@ def context_goi(genes):
     #goi = next((g for g in genes if cog_of_interest in g[3].lower()), None)
     #goi = next((g for g in genes if locustag_of_interest in g[3].lower()), None)
     goi = next((g for g in genes if any(locus_tag.lower() in g[4].lower() for locus_tag in locus_tags_cog_list)), None)
-
+   
     print(f"context goi {goi}")
     if not goi:
         return genes
