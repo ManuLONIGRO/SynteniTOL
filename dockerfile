@@ -22,38 +22,30 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -
     && rm miniconda.sh
 ENV PATH=/opt/conda/bin:$PATH
 
-
-# Hacer que todos los comandos usen este entorno
-#SHELL ["conda", "run", "-n", "syntenitol", "/bin/bash", "-c"]
-
-
-# Configurar canales y actualizar conda
 # Configurar canales, aceptar ToS y actualizar conda
-RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
-    conda config --remove-key channels || true && \
+RUN conda config --remove-key channels || true && \
     conda config --add channels conda-forge && \
     conda config --add channels bioconda && \
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
     conda config --set channel_priority strict && \
-    conda update -y conda
+    conda update -y conda   
 
+    
 # Crear un entorno llamado syntenitol con Python 3.10 y librerías
 RUN conda create -y -n syntenitol python=3.10
 
 # Instalar herramientas adicionales desde bioconda
 RUN conda install -y -n syntenitol bmge
 
-# Instalar datasets de NCBI
-RUN conda install -y -n syntenitol -c conda-forge ncbi-datasets-cli
+# Instalar datasets de NCBI, ete3 biopython
+RUN conda install -y -n syntenitol -c conda-forge ncbi-datasets-cli ete3 biopython pandas numpy
 
-# instalar ete3
-RUN conda install -y -n syntenitol -c conda-forge ete3
+# Copiar scripts al contenedor
+COPY bin /opt/syntenitol/bin
 
-# Instalar librerías de Python que necesites
-RUN pip install biopython pandas numpy
+# Asegurarse que estan en el PATH
+ENV PATH="/opt/syntenitol/bin:${PATH}"
 
 # Definir el directorio de trabajo
 WORKDIR /data
-
-# Comando por defecto
-#CMD ["/bin/bash"]
