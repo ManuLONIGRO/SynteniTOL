@@ -58,6 +58,7 @@ def procesar_archivo(result_path):
         evalue = None
         found_first_hit = False
 
+        # Parse hmmsearch result file
         with open(result_path, "r") as f:
             for line in f:
                 if line.startswith("#"):
@@ -90,8 +91,9 @@ def procesar_archivo(result_path):
         #coverage = total_aligned / length_seq
 
         # search GBFF for matching protein id
-        hit_id_clean = best_hit_id.split(".")[0] if best_hit_id else None
-        if not hit_id_clean:
+        # hit_id_clean = best_hit_id if best_hit_id else None
+        
+        if not best_hit_id:
             return None
 
         records = list(SeqIO.parse(gbff_file, "genbank"))
@@ -102,15 +104,19 @@ def procesar_archivo(result_path):
                 qualifiers = feature.qualifiers
                 protein_id = qualifiers.get("protein_id", [""])[0]
                 locus_tag = qualifiers.get("locus_tag", [""])[0]
-                all_ids = [protein_id.split(".")[0]]  # keep same logic as before
-                if hit_id_clean in all_ids:
+                # all_ids = [protein_id.split(".")[0]]  # keep same logic as before
+                all_ids = [protein_id]  # keep same logic as before
+                # if hit_id_clean in all_ids:
+                if best_hit_id in all_ids:
                     found_locus_tag = locus_tag if locus_tag else protein_id
                     sequence = qualifiers.get("translation", [""])[0]
                     length_seq = len(sequence)
-                    return ("mapeado", hit_id_clean, found_locus_tag, length_seq, total_aligned, evalue)
+                    # return ("mapeado", hit_id_clean, found_locus_tag, length_seq, total_aligned, evalue)
+                    return ("mapeado", best_hit_id, found_locus_tag, length_seq, total_aligned, evalue)
 
         # not found in GBFF
-        return ("no_mapeado", hit_id_clean)
+        # return ("no_mapeado", hit_id_clean)
+        return ("no_mapeado", best_hit_id)
 
     except Exception as e:
         print(f"Error processing {result_path}: {e}", file=sys.stderr)
@@ -130,9 +136,11 @@ if __name__ == "__main__":
             with open(output_file, "a") as out:
                 out.write(f"no hits\n")
         elif resultado[0] == "no_mapeado":
-            _, hit_id_clean = resultado
+            # _, hit_id_clean = resultado
+            _, best_hit_id = resultado
             with open(no_mapeadas_file, "a") as out:
-                out.write(f"{hit_id_clean}\n")
+                # out.write(f"{hit_id_clean}\n")
+                out.write(f"{best_hit_id}\n")
     else:
         # nothing to write (no hits or errors logged to stderr)
         pass
