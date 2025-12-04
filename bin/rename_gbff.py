@@ -11,6 +11,7 @@ import os
 import csv
 import shutil
 import argparse
+import re
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--tsv", required=True, help="Path to input TSV file with assembly info")
@@ -33,8 +34,12 @@ with open(tsv_path, newline="") as tsvfile:
     reader = csv.DictReader(tsvfile, delimiter="\t")
     for row in reader:
         assembly = row["assembly"].strip()
-        organism = row["organism"].strip().lower().replace(" ", "")
-        isolate = row["isolate"].strip().lower().replace(" ", "") if "isolate" in row and row["isolate"].strip() else ""
+        protein_id = row["protein"].strip()
+        # organism = row["organism"].strip().lower().replace(" ", "").replace("-","").replace(":","")
+        organism = re.sub(r"[^a-zA-Z0-9]", "", row["organism"].strip().lower())
+        # isolate = row["isolate"].strip().lower().replace(" ", "") if "isolate" in row and row["isolate"].strip() else ""
+        raw_isolate = row.get("isolate", "")
+        isolate = re.sub(r"[^a-zA-Z0-9]", "", raw_isolate.strip().lower()) if raw_isolate.strip() else ""
 
         src_dir = os.path.join(base_dir, assembly)
         if not os.path.isdir(src_dir):
@@ -49,9 +54,9 @@ with open(tsv_path, newline="") as tsvfile:
 
         src_file = os.path.join(src_dir, gbff_files[0])
         if isolate:
-            new_name = f"{organism}{isolate}.gbff".replace("_","")
+            new_name = f"{organism}{isolate}{protein_id}.gbff".replace("_","")
         else:
-            new_name = f"{organism}.gbff".replace("_","")
+            new_name = f"{organism}{protein_id}.gbff".replace("_","")
 
         dst_file = os.path.join(output_dir, new_name)
         shutil.copy2(src_file, dst_file)
