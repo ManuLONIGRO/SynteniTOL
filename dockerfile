@@ -38,8 +38,8 @@ RUN conda create -y -n syntenitol python=3.10
 # Instalar herramientas adicionales desde bioconda
 RUN conda install -y -n syntenitol bmge
 
-# Instalar datasets de NCBI, ete3 biopython
-RUN conda install -y -n syntenitol -c conda-forge ncbi-datasets-cli ete3 biopython pandas numpy
+# Instalar datasets de NCBI, biopython
+RUN conda install -y -n syntenitol -c conda-forge ncbi-datasets-cli biopython pandas numpy
 
 # Copiar scripts al contenedor
 COPY bin /opt/syntenitol/bin
