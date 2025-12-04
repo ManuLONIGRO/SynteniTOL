@@ -15,7 +15,6 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 from Bio import SeqIO
-from ete3 import NCBITaxa
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--evalue", type=float, default=1e-5, help="E-value threshold for filtering")
@@ -24,6 +23,8 @@ parser.add_argument("--dataframe", type=str, required=True, help="Path to the da
 parser.add_argument("--out_prefix", type=str, required=True, help="Output prefix for generated files")
 parser.add_argument("--gene_list", type=str, nargs='*', default=None, help="List of genes/COGs of interest (space-separated)")
 parser.add_argument("--cogs", type=str, default=None, help="Comma-separated COG list, e.g., COG1152,COG1795")
+parser.add_argument("--protein_to_organism_map_tsv", type=str, required=True, help="Path to protein_to_organism_map.tsv file")
+parser.add_argument("--out_tsv", type=str, required=True, help="Path to output TSV file with species info")
 args = parser.parse_args()
 
 choose_evalue = args.evalue
@@ -34,15 +35,16 @@ print(f"Reading dataframe from {args.dataframe}")
 
 df = pd.read_csv(args.dataframe, sep="\t")
 # Filter by coverage
-df_filtrado = df[df["coverage"] > 0.65]
+df_filtered = df[df["coverage"] > 0.65]
 
 # Build lookups
-locus_to_gene: Dict[str, str] = dict(zip(df_filtrado["locus_tag"], df_filtrado["gene"]))
-dic_taxid: Dict[str, str] = dict(zip(df_filtrado["locus_tag"], df_filtrado["taxid"]))
+locus_to_gene: Dict[str, str] = dict(zip(df_filtered["locus_tag"], df_filtered["gene"]))
+#print(locus_to_gene)
+#dic_taxid: Dict[str, str] = dict(zip(df_filtered["locus_tag"], df_filtered["taxid"]))
+#dic_species: Dict[str, str] = dict(zip(df_filtered["locus_tag"], df_filtered["specie"]))
+#dic_isolate: Dict[str, str] = dict(zip(df_filtered["locus_tag"], df_filtered["isolate"]))
 
 print(f"Creating presence_binary_data_fromTSV_{formatted_evalue}...")
-
-ncbi = NCBITaxa()
 
 # Determine COG of interest and its locus_tags before scanning GBFFs
 def parse_cogs(cogs_str: str) -> List[str]:
@@ -59,8 +61,15 @@ if not gene_list:
     raise SystemExit("You must provide --gene_list or --cogs")
 
 cog_of_interest = gene_list[0]
-locus_tags_cog_list = df_filtrado[df_filtrado["gene"].str.lower() == cog_of_interest.lower()]["locus_tag"].unique().tolist()
-locus_goi_set = set([lt.lower() for lt in locus_tags_cog_list])
+protein_interest_list = df_filtered[df_filtered["gene"] == cog_of_interest]["protein_id"].unique().tolist()
+protein_interest_set = set([pid for pid in protein_interest_list])
+print(f"Proteins of interest for {cog_of_interest}: {protein_interest_set}")
+locus_tags_cog_list = df_filtered[df_filtered["gene"] == cog_of_interest]["locus_tag"].unique().tolist()
+locus_goi_set = set([lt for lt in locus_tags_cog_list])
+
+# Rows for the new tsv with species info
+rows_to_tsv = []
+# Charge protein_to_organism_map.tsv to build dict protein: organism,isolate
 
 def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: set):
     records = list(SeqIO.parse(input_file, "genbank"))
@@ -70,25 +79,32 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
     best_contig_genes: List[Tuple[int, int, int, str, str]] = []
     best_contig_len = 0
     taxid = None
-    isolate = "NA"
+    # isolate = "NA"
 
     # choose only the contig that contains the GOI; if multiple, pick the one with more genes
     for record in records:
         contig_genes: List[Tuple[int, int, int, str, str]] = []
         contains_goi = False
-        local_taxid = None
+        local_taxid = "NA"
         local_isolate = "NA"
+        local_strain = "NA"
+        local_species = "NA"
+        local_protein_id = "NA"
 
         for feature in record.features:
             if feature.type == "source":
                 db_xrefs = feature.qualifiers.get("db_xref", [])
                 local_isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_")
+                local_strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_")
+                local_species = feature.qualifiers.get("organism", ["NA"])[0].replace(" ", "_")
                 for xref in db_xrefs:
                     if xref.startswith("taxon:"):
                         local_taxid = xref.split(":")[1]
                         break
             if feature.type == "CDS":
-                locus_tag = feature.qualifiers.get("locus_tag", [""])[0]
+                locus_tag = feature.qualifiers.get("locus_tag", ["NA"])[0]
+                # local_protein_id = feature.qualifiers.get("protein_id", ["NA"])[0].split(".")[0].strip()
+                local_protein_id = feature.qualifiers.get("protein_id", ["NA"])[0].strip()
                 if not locus_tag:
                     continue
                 start = int(feature.location.start)
@@ -96,33 +112,39 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
                 strand = int(feature.location.strand)
                 gene_name = locus_to_gene.get(locus_tag, locus_tag)
                 contig_genes.append((start, end, strand, gene_name, locus_tag))
-                if locus_tag.lower() in locus_goi_set:
+                if locus_tag in locus_goi_set:
                     contains_goi = True
-
+                if local_protein_id in protein_interest_set:
+                    print(f"Found local protein id {local_protein_id}")
+                    rows_to_tsv.append({
+                        "protein_id": local_protein_id,
+                        "local_taxid": local_taxid,
+                        "locus_tag": locus_tag,
+                        "local_species": local_species,
+                        "local_strain": local_strain,
+                        "local_isolate": local_isolate
+                    })
+                    # to_map = f"{local_protein_id}\t{local_taxid}\t{locus_tag}\t{local_species}\t{local_strain}\t{local_isolate}"
+    
         if contains_goi and len(contig_genes) > len(best_contig_genes):
             best_contig_genes = contig_genes
             best_contig_len = len(record.seq)
             taxid = local_taxid
-            isolate = local_isolate
+            
+            # isolate = local_isolate
+        # if local_protein_id:
+        #     header = local_protein_id
+        # else:
+        #     header = "Unknown|Unknown|NA"
+    
 
     if not best_contig_genes or not taxid:
         return None
-
-    # Resolve species name from taxid
-    try:
-        lineage = ncbi.get_lineage(int(taxid))
-        names = ncbi.get_taxid_translator(lineage)
-        ranks = ncbi.get_rank(lineage)
-        species_taxid = [tid for tid in lineage if ranks[tid] == "species"]
-        if species_taxid:
-            nombre_org = names[species_taxid[0]]
-            species_name = nombre_org.replace(" ", "_").replace("(", "").replace(")", "")
-        else:
-            species_name = "Unknown"
-    except Exception:
-        species_name = "Unknown"
-
-    header = f"{species_taxid[0]}|{species_name}|{isolate}"
+    if local_species:
+        header = f"{local_taxid}|{local_species}|{local_strain}|{local_isolate}"
+    else:
+        header = "Unknown|Unknown|Unknown|Unknown|NA"
+    # header = f"{species_taxid[0]}|{species_name}|{isolate}"
     return (header, best_contig_len, best_contig_genes)
 
 # Sequential processing (Nextflow manages parallelism across tasks if needed)
@@ -160,7 +182,7 @@ print(f"cog_of_interest: {cog_of_interest}")
 
 
 def reflect_synteny(genes):
-    goi = next((g for g in genes if any(locus_tag.lower() in g[4].lower() for locus_tag in locus_tags_cog_list)), None)
+    goi = next((g for g in genes if any(locus_tag in g[4] for locus_tag in locus_tags_cog_list)), None)
     if not goi:
         return genes
     print(f"Reflect synteny{goi}")
@@ -191,9 +213,7 @@ with open(input_path, "r") as infile, open(oriented_out, "w") as outfile:
 print("Creating context gene...")
 
 def context_goi(genes):
-    #goi = next((g for g in genes if cog_of_interest in g[3].lower()), None)
-    #goi = next((g for g in genes if locustag_of_interest in g[3].lower()), None)
-    goi = next((g for g in genes if any(locus_tag.lower() in g[4].lower() for locus_tag in locus_tags_cog_list)), None)
+    goi = next((g for g in genes if any(locus_tag in g[4] for locus_tag in locus_tags_cog_list)), None)
    
     print(f"context goi {goi}")
     if not goi:
@@ -217,3 +237,13 @@ with open(oriented_out, "r") as infile, open(sector_out, "w") as outfile:
         header, genome_length, genes = data
         genes_oriented = context_goi(genes)
         outfile.write(f"{(header, genome_length, genes_oriented)}\n")
+
+# Charge protein_to_organism_map.tsv
+map_tsv = args.protein_to_organism_map_tsv
+df_organism_map = pd.read_csv(map_tsv, sep="\t").rename(columns={'protein': 'protein_id'})
+
+# Create the new tsv with species info
+df_new = pd.DataFrame(rows_to_tsv)
+df_final = df_organism_map.merge(df_new, on="protein_id", how="left")
+out_tsv = args.out_tsv
+df_final.to_csv(out_tsv, sep="\t", index=False)
