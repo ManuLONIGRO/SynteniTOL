@@ -5,39 +5,43 @@ params.inputFASTA = file(params.inputFASTA) ?: null  // input file with FASTA se
 params.cogs = params.cogs ?: null // cogs list
 
 process efetch_to_tsv {
+    publishDir "results", mode: 'copy', overwrite: true
     input:
     path inputFASTA
     path efetch_script
     output:
     path "protein_to_organism_map.tsv", emit: protein_to_organism_map
     path "assemblies_to_download", emit: assemblies_to_download
+    // path "taxonomy.tsv", emit: taxonomy_tsv
+    path "no_assembly_list.txt", emit: no_assembly_list
 
     script:
     """
     conda run -n syntenitol python3 ${efetch_script} \
         --fasta ${inputFASTA} \
-        --out-tsv protein_to_organism_map.tsv \
-        --out-assemblies assemblies_to_download
+        --out_tsv protein_to_organism_map.tsv \
+        --out_assemblies assemblies_to_download \
+        --out_no_assembly_list no_assembly_list.txt \
     """
 }
-/*
-process efetch_to_tsv {
+// --out_taxonomy taxonomy.tsv \
+process mapping_taxid {
+    publishDir "results", mode: 'copy', overwrite: true
     input:
-    path inputFASTA
+    tuple path(taxonomy_tsv), path(protein_to_organism_map), path(mapping_pid_taxid_script)
     output:
-    path "protein_to_organism_map.tsv", emit: protein_to_organism_map
-    path "assemblies_to_download", emit: assemblies_to_download
-
+    path "protein_taxid.tsv", emit: protein_taxid_map
     script:
     """
-    conda run -n syntenitol python3 efetch_to_tsv.py \
-        --fasta ${inputFASTA} \
-        --out-tsv protein_to_organism_map.tsv \
-        --out-assemblies assemblies_to_download
+    conda run -n syntenitol python3 ${mapping_pid_taxid_script} \
+        --protein_to_organism_map ${protein_to_organism_map} \
+        --taxonomy_tsv ${taxonomy_tsv} \
+        --out_pid_taxid_tsv protein_taxid.tsv
     """
 }
-*/
 process download_assemblies {
+    // errorStrategy 'retry'
+    // maxRetries 1   // second attempt if the download fails (e.g. network hiccup)
     input:
     path assemblies_to_download
     output:
@@ -46,13 +50,23 @@ process download_assemblies {
     script:
     """
     mkdir gbff_assemblies
-
+    rm -f assemblies.zip
     conda run -n syntenitol datasets download genome accession --inputfile ${assemblies_to_download} --include gbff --filename assemblies.zip
-
     unzip assemblies.zip -d gbff_assemblies
     """
 }
-
+process download_no_assemblies {
+    input:
+    val no_assembly_acc
+    output:
+    path "gbff_no_assemblies/*.gbff", emit: gbff_no_assembly_file
+    script:
+    """ 
+    #set -euo pipefail
+    mkdir -p gbff_no_assemblies
+    conda run -n syntenitol efetch -db nuccore -id ${no_assembly_acc} -format gb > gbff_no_assemblies/${no_assembly_acc}.gbff 
+    """
+}
 process rename_gbff_files {
     input:
     path gbff_dir 
@@ -66,7 +80,35 @@ process rename_gbff_files {
     conda run -n syntenitol python3 ${rename_gbff_script} --tsv ${tsv_file} --result_zip_ncbi_dir ${gbff_dir}/ncbi_dataset/data --output_dir_genomes genomes
     """
 }
-//    #conda run -n syntenitol python3 rename_gbff.py --tsv ${tsv_file} --result_zip_ncbi_dir ${gbff_dir}/ncbi_dataset/data --output_dir_genomes genomes
+
+process rename_no_assemblies_files {
+    input:
+    path gbff_no_assemblies
+    path tsv_file
+    path rename_no_assemblies_script
+    output:
+    path "genomes_no_assemblies"
+    script:
+    """
+    conda run -n syntenitol python3 ${rename_no_assemblies_script} --tsv ${tsv_file} --gbff_no_assemblies ${gbff_no_assemblies} --output_dir_genomes genomes_no_assemblies
+    """
+}
+
+process merge_genome_directories {
+    input:
+        tuple path(genomes_dir), path(genomes_no_assemblies_dir)
+    output:
+        path "genomes_all"
+
+    script:
+    """
+    rm -rf genomes_all
+    mkdir -p genomes_all
+    cp ${genomes_dir}/*.gbff genomes_all/ || true
+    mkdir -p ${genomes_no_assemblies_dir} || true
+    cp ${genomes_no_assemblies_dir}/*.gbff genomes_all/ || true
+    """
+}
 
 process gbff_to_proteomes {
     input:
@@ -78,11 +120,10 @@ process gbff_to_proteomes {
     script:
     """
     mkdir -p proteomes
-
-    
     conda run -n syntenitol python3 ${gbff2prot_script} --genomes_dir ${gbff_files} --proteomes_dir proteomes
     """
 }
+//conda run -n syntenitol python3 ${gbff2prot_script} --genomes_dir ${gbff_no_assemblies_files} --proteomes_dir proteomes
 //#conda run -n syntenitol python3 gbff2prot.py --genomes_dir ${gbff_files} --proteomes_dir proteomes
 process download_cogs {
     input:
@@ -138,21 +179,19 @@ process hmm_search {
     
     script:
     """
-    
     profile_name=\$(basename "${profile}" .hmm | sed 's/profile_//')
     
     for proteome in ${proteomes_dir}/*.prot; do
         proteome_name=\$(basename "\$proteome" .prot)
-        #hmmsearch "${profile}" "\${proteome}" > "hmm_\${proteome_name}_\${profile_name}.result"
-        hmmsearch "${profile}" "\${proteome}" > "\${proteome_name}_\${profile_name}.result"
-        
-        #mv "\${proteome_name}_\$profile_name.result" hmm_search_results_dir/
+        hmmsearch -E 1e-5 --acc --domtblout "\${proteome_name}_\${profile_name}.result" "${profile}" "\${proteome}"
     done
     """
 }
 // #mkdir -p hmm
 //#for file in ${profile}/*.hmm; do
-    
+    //#hmmsearch "${profile}" "\${proteome}" > "hmm_\${proteome_name}_\${profile_name}.result"
+    //#mv "\${proteome_name}_\$profile_name.result" hmm_search_results_dir/
+
 process ids_locustag_mapping {
     input:
     //path hmm_result_file
@@ -165,21 +204,23 @@ process ids_locustag_mapping {
     """
     mkdir -p mappings
     base=\$(basename "${hmm_result_file}" .result)
-
     
     conda run -n syntenitol python3 ${ids_locustag_mapping_script} \
       --genomes_dir ${genomes_dir} \
       --result_file ${hmm_result_file} \
       --output_file mappings/\${base}.map \
-      --no_mapped_file mappings/\${base}.no_map #\
-      #--metrics_file mappings/\${base}.metrics.tsv
-    # ensure files exist even if empty
-    # touch mappings/\${base}.mapped.txt mappings/\${base}.no_mapped.txt mappings/\${base}.metrics.tsv
+      --no_mapped_file mappings/\${base}.no_map
     """
 }
+/*
+#--metrics_file mappings/\${base}.metrics.tsv
+    # ensure files exist even if empty
+    # touch mappings/\${base}.mapped.txt mappings/\${base}.no_mapped.txt mappings/\${base}.metrics.tsv
+*/
 //mapped lines (protein_id -> locus_tag)
     //conda run -n syntenitol python3 ids_locustag_mapping.py \
 process merge_mappings {
+    publishDir "results", mode: 'copy', overwrite: true
     input:
     path map_files
     output:
@@ -187,12 +228,12 @@ process merge_mappings {
 
     script:
     """
-    cat ${map_files} > all_mappings.map
+    cat ${map_files} | grep -v "no hits" > all_mappings.map 
     """
 }
 
 process build_dataframe {
-    publishDir "results", mode: 'copy'
+    publishDir "results", mode: 'copy', overwrite: true
     input:
     tuple path(mappings_file), path(genomes_dir), path(hmm_results_files), path(map_genes_to_tsv_script)
     output:
@@ -214,13 +255,14 @@ process build_dataframe {
     //, path(protein_map)    
 
 process files_to_synteny {
+    publishDir "results", mode: 'copy', pattern: "df_complete.tsv", overwrite: true
 	input:
-		tuple val(cogs_csv), path(genomes_dir), path(dataframe), path(createFiles2Synteny_script)
+		tuple val(cogs_csv), path(genomes_dir), path(dataframe), path(createFiles2Synteny_script), path(protein_to_organism_map)
 	output:
 		path "*_presence_binary_data_*", optional: true, emit: presence_binary_data
 		path "*_genomic_context_data_*_oriented", optional: true
 		path "*_genomic_context_data_*_sector", optional: true, emit: synteny_contexts
-
+        path "df_complete.tsv", emit: df_complete
 	script:
 	"""
 	out_prefix="synteny"
@@ -229,12 +271,14 @@ process files_to_synteny {
 	  --input_dir ${genomes_dir} \
 	  --cogs ${cogs_csv} \
 	  --dataframe ${dataframe} \
-	  --out_prefix \${out_prefix}
+	  --out_prefix \${out_prefix} \
+      --protein_to_organism_map_tsv ${protein_to_organism_map} \
+      --out_tsv df_complete.tsv
 	"""
 }
 //#conda run -n syntenitol python3 createFiles2Synteny.py \
 process itol_files {
-    publishDir "results", mode: 'copy'
+    publishDir "results", mode: 'copy', overwrite: true
     input:
         tuple val(cogs_csv), val(color_by_group), path(genomic_context_file), path(presence_binary_file), path(syntenyTaxOrg_script)
     output:
@@ -260,17 +304,50 @@ process itol_files {
       --itol_profiling_file itol_binary.txt
     """
 }
+process new_format_headers{
+    publishDir "results", mode: 'copy', overwrite:true
+    input:
+    tuple path(inputFASTA), path(genomes_dir), path(new_formatHeaders_script)
+    output:
+    path "formatted_headers.fasta"
+    script:
+    """
+    conda run -n syntenitol python3 ${new_formatHeaders_script} \
+        --input_fasta ${inputFASTA} \
+        --genomes_dir ${genomes_dir} \
+        --output_fasta formatted_headers.fasta
+    """
+}
+
+// process format_headers_fasta {
+//     publishDir "results", mode: 'copy', overwrite: true
+//     input:
+//     tuple path(inputFASTA), path(df_complete), path(formatHeaders_script_ch)
+
+//     output:
+//     path "formatted_headers.fasta"
+
+//     script:
+//     """
+//     conda run -n syntenitol python3 ${formatHeaders_script_ch} \
+//         --input_fasta ${inputFASTA} \
+//         --dataframe ${df_complete} \
+//         --output_fasta formatted_headers.fasta
+//     """
+// }
+//  path(protein_to_organism_map),
+// --protein_to_organism_map ${protein_to_organism_map} \
 //#conda run -n syntenitol python3 syntenyTaxOrg.py \
 process maketree {
-    publishDir "results", mode: 'copy'
+    publishDir "results", mode: 'copy', overwrite: true
     input:
-    path inputFASTA
+    path formatted_fasta
     output:
     path "tree.nwk"
 
     script:
     """
-    mafft --auto ${inputFASTA} > aligned.fasta
+    mafft --auto ${formatted_fasta} > aligned.fasta
     conda run -n syntenitol bmge -i aligned.fasta -o-of trimmed.fasta -m BLOSUM30 -t AA -h 0.5
     fasttree trimmed.fasta > tree.nwk
     """
@@ -289,20 +366,40 @@ workflow {
     map_genes_to_tsv_script_ch = channel.fromPath('bin/map_genes_to_tsv.py')
     createFiles2Synteny_script_ch = channel.fromPath('bin/createFiles2Synteny.py')
     syntenyTaxOrg_script_ch = channel.fromPath('bin/syntenyTaxOrg.py')
-    
+    formatHeaders_script_ch = channel.fromPath('bin/formatHeaders_inputFASTA.py')
+    mapping_pid_taxid_script_ch = channel.fromPath('bin/mapping_pid_taxid.py')
+    new_formatHeaders_script_ch = channel.fromPath('bin/new_formatHeaders_inputFASTA.py')
+    rename_no_assemblies_script_ch = channel.fromPath('bin/rename_no_assemblies.py')
     // run efetch_to_tsv process
     //efetch_results = efetch_to_tsv(fasta_ch)
-
-    
     efetch_results = efetch_to_tsv(fasta_ch,efetch_script_ch)
+    
+    // Creating pid_taxid tsv No tiene sentido porque tiene los taxid del lineage pero no del organismo.""
+    // protein_taxid_map_tsv = mapping_taxid(efetch_results.taxonomy_tsv
+    //     .combine(efetch_results.protein_to_organism_map)
+    //     .combine(mapping_pid_taxid_script_ch))
+
     // Download assemblies
     download_assemblies_results = download_assemblies(efetch_results.assemblies_to_download)
+    // Download assemblies for those without assembly in NCBI
+    no_assembly_ids = efetch_results.no_assembly_list
+                                    .splitText()
+                                    .map { it.trim() }
+                                    .filter { it }
+    no_assemblies_files = download_no_assemblies(no_assembly_ids)
+    separate_no_assemblies_files = no_assemblies_files.flatten()
+    // Rename no _assemblies_gbff files (this channel may be empty if there are no such genomes)
+    rename_no_assemblies_result = rename_no_assemblies_files(separate_no_assemblies_files, efetch_results.protein_to_organism_map, rename_no_assemblies_script_ch)
+    // If there are no "no_assembly" genomes, provide an explicit empty directory placeholder as a *path value* (not a channel)
+    rename_no_assemblies_or_empty = rename_no_assemblies_result.ifEmpty { file('empty_no_assemblies') }
 
     // Rename gbff. download_assemblies_results has just 1 output, so .out doesn't exists.
     genomes_dir = rename_gbff_files(download_assemblies_results, efetch_results.protein_to_organism_map,rename_gbff_script_ch)
+    // Merge genomes with (possibly empty) "no_assembly" genomes directory
+    all_genomes_dir = merge_genome_directories(genomes_dir.combine(rename_no_assemblies_or_empty))
 
     // Creates proteomes from gbff
-    proteomes_dir = gbff_to_proteomes(genomes_dir,gbff2prot_script_ch)
+    proteomes_dir = gbff_to_proteomes(all_genomes_dir,gbff2prot_script_ch)
 
     // convert string "COG1152,COG1795" to list ['COG1152','COG1795']
     cogs_list = params.cogs.tokenize(',')*.trim()
@@ -325,13 +422,13 @@ workflow {
     // Mapping ids_locustag
     separate_hmm_results = hmm_search_results.flatten()
     //separate_hmm_results.view()
-    mapping_hmm_results = ids_locustag_mapping(separate_hmm_results.combine(genomes_dir).combine(ids_locustag_mapping_script_ch)).mapped_file
+    mapping_hmm_results = ids_locustag_mapping(separate_hmm_results.combine(all_genomes_dir).combine(ids_locustag_mapping_script_ch)).mapped_file
     final_mapped = merge_mappings(mapping_hmm_results.collect())
     
     // Build final dataframe TSV (collect a single flat list of result files)
     map_df = build_dataframe(
         final_mapped
-            .combine(genomes_dir)
+            .combine(all_genomes_dir)
             .combine(separate_hmm_results.collect().toList())
             .combine(map_genes_to_tsv_script_ch)
             //.combine(efetch_results.protein_to_organism_map)
@@ -340,11 +437,13 @@ workflow {
     // Run synteny file generation on the produced dataframe
     cogs_csv = params.cogs
     synteny_results = files_to_synteny(channel.value(cogs_csv)
-                                .combine(genomes_dir)
+                                .combine(all_genomes_dir)
                                 .combine(map_df)
-                                .combine(createFiles2Synteny_script_ch))
+                                .combine(createFiles2Synteny_script_ch)
+                                .combine(efetch_results.protein_to_organism_map))
     synteny_context_data = synteny_results.synteny_contexts
     presence_binary_data = synteny_results.presence_binary_data
+    df_complete = synteny_results.df_complete
 
     // Build iTOL files
     color_group_opt = params.color_by_group ?: ""
@@ -353,14 +452,13 @@ workflow {
                                 .combine(synteny_context_data)
                                 .combine(presence_binary_data)
                                 .combine(syntenyTaxOrg_script_ch))
-/*
-itol_outputs = itol_files(channel.value(cogs_csv)
-                                .combine(channel.value(color_group_opt))
-                                .combine(synteny_context_data)
-                                .combine(presence_binary_data)
-                                .combine(syntenyTaxOrg_script_ch))
-                                */
-    maketree_results = maketree(fasta_ch)
+    // format headers of inputFASTA for tree building
+    formatted_fasta_ch = new_format_headers(fasta_ch
+                                                .combine(all_genomes_dir)
+                                                .combine(new_formatHeaders_script_ch))
+    
+    // make treefile
+    maketree_results = maketree(formatted_fasta_ch)
 }
 
 
