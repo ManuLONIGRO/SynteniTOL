@@ -26,7 +26,6 @@ def parse_args():
     parser.add_argument("--gene_list", type=str, nargs='*', default=None, help="List of genes/COGs of interest (space-separated)")
     parser.add_argument("--cogs", type=str, default=None, help="Comma-separated COG list, e.g., COG1152,COG1795")
     parser.add_argument("--color_by_group", type=str, default=None, help="Comma-separated groups; hyphen joins members, e.g. COG1152-COG1229,COG1795")
-
     parser.add_argument("--genomic_context_data", type=str, required=True, help="Path to genomic context data file")
     parser.add_argument("--itol_synteny_file", type=str, required=True, help="Output path for itol synteny oriented file")
     parser.add_argument("--synteny_log", type=str, required=True, help="Output path for synteny log file")
@@ -136,8 +135,9 @@ with open(archivo_sintenia, "w") as f, open(archivo_log, "w") as log_file:
     f.write(f"""DATASET_DOMAINS
 SEPARATOR COMMA
 DATASET_LABEL,Synteny_{gene_of_interest}
-COLOR,#000000
+COLOR,#0000ff
 BORDER_WIDTH,0.5
+SHOW_DOMAIN_LABELS,0
 
 DATA
 """)
@@ -176,7 +176,7 @@ DATA
                 gene_context.append(gene_entry_context)
 
         log_file.write(f"Context of {gene_of_interest} of {organism_name}\n{gene_context}\n\n")
-        f.write(f"{organism_name},64000,{','.join(gene_context)}\n")
+        f.write(f"{organism_name},66000,{','.join(gene_context)}\n")
 
 # ---------- Binary profiling ----------
 organism_gene_presence: Dict[str, Dict[str, str]] = {}
@@ -211,7 +211,7 @@ n_fields = ",1" * len(gene_list)
 
 with open(itol_binario, "w") as f3:
     f3.write(
-        f"DATASET_BINARY\nSEPARATOR COMMA\nDATASET_LABEL,Gene\nCOLOR,#000000\nFIELD_SHAPES{n_fields}\nFIELD_LABELS,{','.join(gene_list)}\nFIELD_COLORS,{','.join(gen_color)}\nDATA\n"
+        f"DATASET_BINARY\nSEPARATOR COMMA\nDATASET_LABEL,Gene\nCOLOR,#ff0000\nFIELD_SHAPES{n_fields}\nFIELD_LABELS,{','.join(gene_list)}\nFIELD_COLORS,{','.join(gen_color)}\nDATA\n"
     )
     for organism, gene_presence in organism_gene_presence.items():
         presence_list = [str(gene_presence[gene]) for gene in gene_list]
