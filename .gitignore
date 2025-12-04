@@ -1,8 +1,8 @@
 # Nextflow runtime
-.work/           # if you changed work dir name, match it
+.work/
 work/
 .nextflow/
-.nextflow.log
+.nextflow.log*
 .cache/
 .trace/
 timeline.html
