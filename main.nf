@@ -12,7 +12,7 @@ process efetch_to_tsv {
     output:
     path "protein_to_organism_map.tsv", emit: protein_to_organism_map
     path "assemblies_to_download", emit: assemblies_to_download
-    // path "taxonomy.tsv", emit: taxonomy_tsv
+    path "taxonomy.tsv", emit: taxonomy_tsv
     path "no_assembly_list.txt", emit: no_assembly_list
 
     script:
@@ -22,9 +22,10 @@ process efetch_to_tsv {
         --out_tsv protein_to_organism_map.tsv \
         --out_assemblies assemblies_to_download \
         --out_no_assembly_list no_assembly_list.txt \
+        --out_taxonomy taxonomy.tsv \
     """
 }
-// --out_taxonomy taxonomy.tsv \
+
 process mapping_taxid {
     publishDir "results", mode: 'copy', overwrite: true
     input:
@@ -319,25 +320,26 @@ process new_format_headers{
     """
 }
 
-// process format_headers_fasta {
-//     publishDir "results", mode: 'copy', overwrite: true
-//     input:
-//     tuple path(inputFASTA), path(df_complete), path(formatHeaders_script_ch)
+process taxonomy_itol_files {
+    publishDir "results", mode: 'copy', overwrite: true
+    input:
+    tuple path(taxonomy_tsv_file), path(df_complete_tsv_file), path(fasta_file), path(taxonomy_itol_files_script)
+    output:
+    path "domain.itol.txt", emit: domain_itol
+    path "phylum.itol.txt", emit: phylum_itol
+    path "class.itol.txt", emit: class_itol
+    script:
+    """
+    conda run -n syntenitol python3 ${taxonomy_itol_files_script} \
+        --taxonomy_tsv ${taxonomy_tsv_file} \
+        --df_complete_tsv ${df_complete_tsv_file} \
+        --fasta_file ${fasta_file} \
+        --domain_itol_file domain.itol.txt \
+        --phylum_itol_file phylum.itol.txt \
+        --class_itol_file class.itol.txt
+    """
+}
 
-//     output:
-//     path "formatted_headers.fasta"
-
-//     script:
-//     """
-//     conda run -n syntenitol python3 ${formatHeaders_script_ch} \
-//         --input_fasta ${inputFASTA} \
-//         --dataframe ${df_complete} \
-//         --output_fasta formatted_headers.fasta
-//     """
-// }
-//  path(protein_to_organism_map),
-// --protein_to_organism_map ${protein_to_organism_map} \
-//#conda run -n syntenitol python3 syntenyTaxOrg.py \
 process maketree {
     publishDir "results", mode: 'copy', overwrite: true
     input:
@@ -370,6 +372,7 @@ workflow {
     mapping_pid_taxid_script_ch = channel.fromPath('bin/mapping_pid_taxid.py')
     new_formatHeaders_script_ch = channel.fromPath('bin/new_formatHeaders_inputFASTA.py')
     rename_no_assemblies_script_ch = channel.fromPath('bin/rename_no_assemblies.py')
+    taxonomy_itol_files_script_ch = channel.fromPath('bin/taxonomy_itol_files.py')
     // run efetch_to_tsv process
     //efetch_results = efetch_to_tsv(fasta_ch)
     efetch_results = efetch_to_tsv(fasta_ch,efetch_script_ch)
@@ -443,7 +446,7 @@ workflow {
                                 .combine(efetch_results.protein_to_organism_map))
     synteny_context_data = synteny_results.synteny_contexts
     presence_binary_data = synteny_results.presence_binary_data
-    df_complete = synteny_results.df_complete
+    df_complete_ch = synteny_results.df_complete
 
     // Build iTOL files
     color_group_opt = params.color_by_group ?: ""
@@ -457,6 +460,12 @@ workflow {
                                                 .combine(all_genomes_dir)
                                                 .combine(new_formatHeaders_script_ch))
     
+    // get taxonomy itol files
+    taxonomy_itol_files_results = taxonomy_itol_files(efetch_results.taxonomy_tsv
+                                                    .combine(df_complete_ch)
+                                                    .combine(formatted_fasta_ch)
+                                                    .combine(taxonomy_itol_files_script_ch))
+
     // make treefile
     maketree_results = maketree(formatted_fasta_ch)
 }
