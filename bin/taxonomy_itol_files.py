@@ -27,21 +27,21 @@ args = parser.parse_args()
 # output_base_path = '/home/mlonigro/syntenitol/results/'
 
 # Load taxonomy.tsv
-# taxonomy_tsv = "/home/mlonigro/syntenitol/results/taxonomy.tsv"
 taxonomy_tsv = args.taxonomy_tsv
-# assembly -> {rank: scientific_name}
-assembly_to_taxonomy = defaultdict(dict)
 
-with open(taxonomy_tsv) as f:
-    reader = csv.reader(f, delimiter="\t")
-    for assembly, taxid, sci_name, rank in reader:
-        if rank in {"domain", "phylum", "class"}:
-            assembly_to_taxonomy[assembly][rank] = sci_name
+df_tax = pd.read_csv(taxonomy_tsv, sep="\t",names=["assembly","taxid","scientific_name","rank"])
+df_tax = df_tax[df_tax["rank"].isin(["domain","phylum","class"])]
+
+# dictionary | assembly -> rank: scientific_name
+assembly_to_taxonomy = defaultdict(dict)
+for _, row in df_tax.iterrows():
+    assembly_to_taxonomy[row["assembly"]][row["rank"]] = row["scientific_name"]
 
 # Load df_complete.tsv
 df_complete_tsv = args.df_complete_tsv
 df_complete = pd.read_csv(df_complete_tsv, sep="\t")
 
+# Dictionary | taxid: assembly
 taxid_to_assembly = dict(zip(df_complete["local_taxid"].astype(str), df_complete["assembly"]))
 
 # Proccess fasta and build the dictionaries
