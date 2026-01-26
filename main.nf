@@ -1,9 +1,41 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
+// Initialize params without logic
+params.help = false
+params.inputFASTA = null
+params.cogs = null
+
+// Print help message if --help is provided
+if (params.help) {
+    log.info """
+    SynteniToL Nextflow Pipeline
+    
+    Usage: nextflow run main.nf --inputFASTA <input_fasta_file> --cogs <cog_list> [options]
+
+    Options:
+      --inputFASTA       Input FASTA file with sequences from blastp results (mandatory)
+      --cogs             Comma-separated list of COGs (e.g., COG1152,COG1795) (mandatory)
+      --color_by_group   Optional parameter to color by group in iTOL files
+      --help             Show this help message and exit
+      """
+      exit 0
+}
+
+// Validate mandatory parameters
+if (!params.inputFASTA) {
+    error "Missing --inputFASTA. Use --help for usage."
+}
+
+if (!params.cogs) {
+    error "Missing --cogs. Use --help for usage."
+}
+
+// Initialize parameters with logic
 params.inputFASTA = file(params.inputFASTA) ?: null  // input file with FASTA sequences
 params.cogs = params.cogs ?: null // cogs list
 
+// Processes
 process efetch_to_tsv {
     publishDir "results", mode: 'copy', overwrite: true
     input:
