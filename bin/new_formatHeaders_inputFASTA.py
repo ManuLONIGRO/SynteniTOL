@@ -57,8 +57,8 @@ for gbff_file in os.listdir(genomes_dir):
                             taxid = xref.split(":")[1]
                             break
                     organism = feature.qualifiers.get("organism", ["NA"])[0].replace(" ", "_")
-                    strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_")
-                    isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_")
+                    strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_").replace(";","")
+                    isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_").replace(";","")
 
                     # # taxid
                     # if "db_xref" in feature.qualifiers:
@@ -90,8 +90,8 @@ with open(input_fasta, "r") as infile, open(output_fasta, "w") as outfile:
                 info = protein_id_to_info[protein_id]
                 taxid = info.get("taxid", "")
                 species_name = info.get("organism", "NA").replace(" ", "_")
-                strain = info.get("strain", "NA").replace(" ", "_")
-                isolate = info.get("isolate", "NA").replace(" ", "_")
+                strain = info.get("strain", "NA").replace(" ", "_").replace(";","")
+                isolate = info.get("isolate", "NA").replace(" ", "_").replace(";","")
                 # Count repetitions
                 header = f">{taxid}|{species_name}|{strain}|{isolate}"
                 if header not in header_count:
