@@ -61,17 +61,54 @@ if not gene_list:
     raise SystemExit("You must provide --gene_list or --cogs")
 
 cog_of_interest = gene_list[0]
-protein_interest_list = df_filtered[df_filtered["gene"] == cog_of_interest]["protein_id"].unique().tolist()
-protein_interest_set = set([pid for pid in protein_interest_list])
+#------------------------------------------------------------------------------------
+# Select the best hit per organism for the cog_of_interest NEW LINES
+df_cog= df_filtered[
+    (df_filtered["gene"] ==  cog_of_interest) &
+    (df_filtered["evalue"] <= choose_evalue)].copy()
+df_cog["organism"] = df_cog["locus_tag"].str.split("_").str[0]
+
+# Define organism from locus_tag prefix 
+df_cog["organism"] = df_cog["locus_tag"].str.split("_").str[0]
+# Sort by evalue ascending
+df_cog = df_cog.sort_values(by="evalue", ascending=True)
+
+# One hit per organism, keep the  first
+df_best_per_org = df_cog.drop_duplicates(subset=["organism"], keep="first")
+
+# These are the protin ids and locus_tags of the best result
+protein_interest_list = df_best_per_org["protein_id"].tolist()
+protein_interest_set = set(protein_interest_list)
+locus_tag_goi = df_best_per_org["locus_tag"].tolist()
+
+#------------------------------------------------------------------------------------
+# #Ordenar por evalue ascendente
+# df_cog = df_cog.sort_values(by="evalue", ascending=True)
+# # quedarme con 1 hit por organismo
+# df_best_per_org = df_cog.drop_duplicates(subset=["organism"], keep="first")
+# protein_interest_list = df_best_per_org["protein_id"].tolist()
+# protein_interest_set = set(protein_interest_list)
+# locus_tag_goi = df_best_per_org["locus_tag"].tolist() #new line
+
+#------------------------------------------------------------------------------------
+#protein_interest_list = df_filtered[df_filtered["gene"] == cog_of_interest]["protein_id"].unique().tolist()
+#protein_interest_set = set([pid for pid in protein_interest_list])
 print(f"Proteins of interest for {cog_of_interest}: {protein_interest_set}")
+#this works
+#locus_tags_cog_list = df_filtered[["gene"] == cog_of_interest]["locus_tag"].unique().tolist() #works
 locus_tags_cog_list = df_filtered[df_filtered["gene"] == cog_of_interest]["locus_tag"].unique().tolist()
-locus_goi_set = set([lt for lt in locus_tags_cog_list])
+locus_goi_set = locus_tags_cog_list #works
+
+#print(f"locus_tag cog list {locus_goi_set}")
+#locus_tags_cog_list = df_filtered[df_filtered["gene"] == cog_of_interest]["locus_tag"].unique().tolist()
+# locus_goi_set = set([lt for lt in locus_tags_cog_list])
 
 # Rows for the new tsv with species info
 rows_to_tsv = []
 # Charge protein_to_organism_map.tsv to build dict protein: organism,isolate
 
 def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: set):
+
     records = list(SeqIO.parse(input_file, "genbank"))
     if not records:
         return None
@@ -94,9 +131,9 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
         for feature in record.features:
             if feature.type == "source":
                 db_xrefs = feature.qualifiers.get("db_xref", [])
-                local_isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_")
-                local_strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_")
-                local_species = feature.qualifiers.get("organism", ["NA"])[0].replace(" ", "_")
+                local_isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_").replace(";","")
+                local_strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_").replace(";","")
+                local_species = feature.qualifiers.get("organism", ["NA"])[0].replace(" ", "_").replace(";","")
                 for xref in db_xrefs:
                     if xref.startswith("taxon:"):
                         local_taxid = xref.split(":")[1]
@@ -112,7 +149,8 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
                 strand = int(feature.location.strand)
                 gene_name = locus_to_gene.get(locus_tag, locus_tag)
                 contig_genes.append((start, end, strand, gene_name, locus_tag))
-                if locus_tag in locus_goi_set:
+                #if locus_tag in locus_goi_set:
+                if locus_tag in locus_tag_goi: #new line
                     contains_goi = True
                 if local_protein_id in protein_interest_set:
                     print(f"Found local protein id {local_protein_id}")
@@ -181,11 +219,30 @@ print(f"cog_of_interest: {cog_of_interest}")
 #print(locustag_of_interest)
 
 
+# def reflect_synteny(genes):
+#     goi = next((g for g in genes if any(locus_tag in g[4] for locus_tag in locus_tags_cog_list)), None)
+#     if not goi:
+#         return genes
+#     print(f"Reflect synteny{goi}")
+#     goi_start, goi_end, goi_strand = goi[0], goi[1], goi[2]
+#     goi_center = (goi_start + goi_end) // 2
+#     if goi_strand == 1:
+#         return genes
+#     reflected_genes = []
+#     for g in genes:
+#         start, end, strand, name, tag = g
+#         new_start = 2 * goi_center - end
+#         new_end = 2 * goi_center - start
+#         new_strand = -strand
+#         reflected_genes.append((min(new_start, new_end), max(new_start, new_end), new_strand, name, tag))
+#     reflected_genes.sort(key=lambda x: x[0])
+#     return reflected_genes
+
 def reflect_synteny(genes):
-    goi = next((g for g in genes if any(locus_tag in g[4] for locus_tag in locus_tags_cog_list)), None)
+    # use only the selected best-per-organism GOI locus_tags
+    goi = next((g for g in genes if g[4] in locus_tag_goi), None)
     if not goi:
         return genes
-    print(f"Reflect synteny{goi}")
     goi_start, goi_end, goi_strand = goi[0], goi[1], goi[2]
     goi_center = (goi_start + goi_end) // 2
     if goi_strand == 1:
@@ -212,10 +269,31 @@ with open(input_path, "r") as infile, open(oriented_out, "w") as outfile:
 # ----- Extract context window around cog_of_interest -----
 print("Creating context gene...")
 
+# def context_goi(genes):
+#     goi = next((g for g in genes if any(locus_tag in g[4] for locus_tag in locus_tags_cog_list)), None)
+    
+#     print(f"context goi {goi}")
+    
+#     if not goi:
+#         return genes
+#     goi_start, goi_end, _ = goi[0], goi[1], goi[2]
+#     goi_center = (goi_start + goi_end) // 2
+#     goi_context_upstream = goi_center - 60000
+#     goi_context_downstream = goi_center + 60000
+#     context_genes = []
+#     for g in genes:
+#         start, end, strand, name, tag = g
+#         if goi_context_upstream < start < goi_context_downstream:
+#             context_genes.append(g)
+#     context_genes.sort(key=lambda x: x[0])
+#     return context_genes
+
 def context_goi(genes):
-    goi = next((g for g in genes if any(locus_tag in g[4] for locus_tag in locus_tags_cog_list)), None)
-   
+    # again, only the selected GOI locus_tags
+    goi = next((g for g in genes if g[4] in locus_tag_goi), None)
+
     print(f"context goi {goi}")
+
     if not goi:
         return genes
     goi_start, goi_end, _ = goi[0], goi[1], goi[2]
@@ -229,7 +307,6 @@ def context_goi(genes):
             context_genes.append(g)
     context_genes.sort(key=lambda x: x[0])
     return context_genes
-
 sector_out = f"{args.out_prefix}_genomic_context_data_{cog_of_interest}_{formatted_evalue}_sector"
 with open(oriented_out, "r") as infile, open(sector_out, "w") as outfile:
     for line in infile:
