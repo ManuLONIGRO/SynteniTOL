@@ -203,6 +203,7 @@ process hmm_build_cogs {
 }
 
 process hmm_search {
+    // publishDir "hmm_search_results_dir", mode: 'copy', overwrite: true
     tag "hmm_search ${profile.simpleName}"
     input:
         tuple path(profile), val(proteomes_dir)
