@@ -62,7 +62,7 @@ for line in result.splitlines():
         "protein": parts[6] or "NA",
         #protein_name=parts[7],
         "organism": parts[8] or "NA",
-        "strain": parts[9] or "NA",
+        "strain": parts[9].replace(";","") or "NA",
         "assembly": parts[10] or "NA",
     }
     
