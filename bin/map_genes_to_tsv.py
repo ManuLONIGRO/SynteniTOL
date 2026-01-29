@@ -12,6 +12,8 @@ Inputs:
 It reconstructs the dictionaries used by the original workflow and writes a
 dataframe with columns:
   taxid, specie, locus_tag, domain, protein_id, gene, evalue, length, aligned coverage
+
+New insight: created locus_to_coverage, with coverage from mappings file, "acc" column.
 """
 
 import argparse
@@ -60,13 +62,14 @@ def parse_args():
 #     return id_to_gene
 
 
-def load_mappings(mappings_file: str) -> Tuple[Dict[str, str], Dict[str, int], Dict[str, int], Dict[str, str]]:
+def load_mappings(mappings_file: str) -> Tuple[Dict[str, str], Dict[str, int], Dict[str, int], Dict[str, str], Dict[str, str], Dict[str, float]]:
     # Returns: id->locus, locus->len, locus->aligned, locus->evalue
     id_to_locus: Dict[str, str] = {}
     locus_to_length: Dict[str, int] = {}
     locus_to_aligned: Dict[str, int] = {}
     locus_to_evalue: Dict[str, str] = {}
     locus_to_gene: Dict[str, str] = {}
+    locus_to_coverage: Dict[str, float] = {}
 
     with open(mappings_file) as fh:
         for line in fh:
@@ -102,12 +105,17 @@ def load_mappings(mappings_file: str) -> Tuple[Dict[str, str], Dict[str, int], D
                             locus_to_gene[locus_tag] = field.split("=", 1)[1]
                         except Exception:
                             pass
+                    elif field.startswith("hmmsearch_cover="):
+                        try:
+                            locus_to_coverage[locus_tag] = float(field.split("=", 1)[1])
+                        except Exception:
+                            pass
                     
             except ValueError:
                 # line not conforming; skip
                 continue
 
-    return id_to_locus, locus_to_length, locus_to_aligned, locus_to_evalue, locus_to_gene
+    return id_to_locus, locus_to_length, locus_to_aligned, locus_to_evalue, locus_to_gene, locus_to_coverage
 
 
 # def get_tax_info_resolve():
@@ -151,6 +159,7 @@ def build_dataframe(genomes_dir: str,
                     locus_to_aligned: Dict[str, int],
                     locus_to_evalue: Dict[str, str],
                     locus_to_gene: Dict[str,str],
+                    locus_to_coverage: Dict[str,float],
                     out_tsv: str,
                     ) -> None:
     # resolve = get_tax_info_resolve()
@@ -200,7 +209,8 @@ def build_dataframe(genomes_dir: str,
                     length = int(locus_to_length.get(locus_tag, 0))
                     aligned = int(locus_to_aligned.get(locus_tag, 0))
                     evalue = float(locus_to_evalue.get(locus_tag, "NA"))
-                    coverage = round(aligned / length, 2) if length > 0 else "NA"
+                    #coverage = round(aligned / length, 2) if length > 0 else "NA"
+                    coverage = locus_to_coverage.get(locus_tag, "NA")
 
                     out.write(
                         # f"{taxid}\t{domain}\t{phylum}\t{class_name}\t{specie}\t{local_isolate}\t{locus_tag}\t{protein_id}\t{gene}\t{evalue}\t{length}\t{aligned}\t{coverage}\n"
@@ -210,7 +220,7 @@ def build_dataframe(genomes_dir: str,
 
 def main():
     args = parse_args()
-    id_to_locus, locus_to_length, locus_to_aligned, locus_to_evalue, locus_to_gene = load_mappings(args.mappings_file)
+    id_to_locus, locus_to_length, locus_to_aligned, locus_to_evalue, locus_to_gene, locus_to_coverage = load_mappings(args.mappings_file)
     # id_to_gene = load_id_to_gene_from_results(args.results_dir)
     os.makedirs(os.path.dirname(args.out_tsv) or ".", exist_ok=True)
     build_dataframe(
@@ -221,6 +231,7 @@ def main():
         locus_to_aligned=locus_to_aligned,
         locus_to_evalue=locus_to_evalue,
         locus_to_gene=locus_to_gene,
+        locus_to_coverage=locus_to_coverage,
         out_tsv=args.out_tsv,
     )
 
