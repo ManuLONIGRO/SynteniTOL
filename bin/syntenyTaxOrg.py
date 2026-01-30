@@ -156,8 +156,8 @@ DATA
             start, end, strand, gene_name, locus_tag = gene
             if gene_name == gene_of_interest:
                 start_goi = start
-                context_inicio = start - 30000
-                context_fin = end + 30000
+                context_inicio = start - 50000
+                context_fin = end + 50000
                 break
 
         if start_goi is None:
@@ -170,13 +170,13 @@ DATA
             color = genes_color_dic.get(gene_name, "#FFFFFF")
             direction = "PL" if strand == -1 else "PR"
             if context_inicio <= start <= context_fin:
-                start_reference = start - start_goi + 30000
-                end_reference = end - start_goi + 30000
+                start_reference = start - start_goi + 50000
+                end_reference = end - start_goi + 50000
                 gene_entry_context = f"{direction}|{start_reference}|{end_reference}|{color}|{gene_name}"
                 gene_context.append(gene_entry_context)
 
         log_file.write(f"Context of {gene_of_interest} of {organism_name}\n{gene_context}\n\n")
-        f.write(f"{organism_name},66000,{','.join(gene_context)}\n")
+        f.write(f"{organism_name},105000,{','.join(gene_context)}\n")
 
 # ---------- Binary profiling ----------
 organism_gene_presence: Dict[str, Dict[str, str]] = {}
