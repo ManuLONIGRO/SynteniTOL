@@ -35,7 +35,7 @@ print(f"Reading dataframe from {args.dataframe}")
 
 df = pd.read_csv(args.dataframe, sep="\t")
 # Filter by coverage
-df_filtered = df[df["coverage"] > 0.65]
+df_filtered = df[df["coverage"] > 0.60]
 
 # Build lookups
 locus_to_gene: Dict[str, str] = dict(zip(df_filtered["locus_tag"], df_filtered["gene"]))
@@ -298,8 +298,8 @@ def context_goi(genes):
         return genes
     goi_start, goi_end, _ = goi[0], goi[1], goi[2]
     goi_center = (goi_start + goi_end) // 2
-    goi_context_upstream = goi_center - 60000
-    goi_context_downstream = goi_center + 60000
+    goi_context_upstream = goi_center - 100000
+    goi_context_downstream = goi_center + 100000
     context_genes = []
     for g in genes:
         start, end, strand, name, tag = g
