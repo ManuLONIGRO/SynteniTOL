@@ -25,6 +25,7 @@ parser.add_argument("--gene_list", type=str, nargs='*', default=None, help="List
 parser.add_argument("--cogs", type=str, default=None, help="Comma-separated COG list, e.g., COG1152,COG1795")
 parser.add_argument("--protein_to_organism_map_tsv", type=str, required=True, help="Path to protein_to_organism_map.tsv file")
 parser.add_argument("--out_tsv", type=str, required=True, help="Path to output TSV file with species info")
+parser.add_argument("--out_candidates_tsv", type=str, required=False, help="Path to output candidates TSV file")
 args = parser.parse_args()
 
 choose_evalue = args.evalue
@@ -61,13 +62,81 @@ if not gene_list:
     raise SystemExit("You must provide --gene_list or --cogs")
 
 cog_of_interest = gene_list[0]
-#------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------------------------------------------
 # Select the best hit per organism for the cog_of_interest NEW LINES
 df_cog= df_filtered[
     (df_filtered["gene"] ==  cog_of_interest) &
     (df_filtered["evalue"] <= choose_evalue)].copy()
 df_cog["organism"] = df_cog["locus_tag"].str.split("_").str[0]
+# df_cog["position_in_genome"] = df_cog["locus_tag"].str.split("_").str[1].astype(int)
 
+# Function to pick best locus_tag by density of genes in the context window of 600
+def best_hit_per_organism_by_prefix(
+    df,
+    cog_of_interest="COG4927",
+    window=300,
+    locus_col="locus_tag",
+    cog_col="gene",
+):
+    df = df.copy()
+
+    # 1) organismo = prefijo antes del primer "_"
+    df["organism"] = df[locus_col].astype(str).str.split("_", n=1).str[0]
+
+    # 2) número del locus_tag (últimos dígitos)
+    # df["locus_num"] = df[locus_col].astype(str).str.extract(r"(\d+)$")[0]
+    # df = df.dropna(subset=["locus_num"])
+    # df["locus_num"] = df["locus_num"].astype(int)
+    df["locus_num"] = (
+    df[locus_col]
+    .astype(str)
+    .str.extract(r"(\d+)(?!.*\d)", expand=False)  # último grupo numérico del string
+)
+    df = df.dropna(subset=["locus_num"])
+    df["locus_num"] = df["locus_num"].astype(int)
+
+    # 3) filtrar candidatos (solo filas del COG de interés)
+    candidates = df[df[cog_col] == cog_of_interest].copy()
+
+    if candidates.empty:
+        return pd.DataFrame()
+
+    # 4) contar cuántas proteínas hay en la ventana ±window para cada candidato
+    counts = []
+    for idx, row in candidates.iterrows():
+        org = row["organism"]
+        center = row["locus_num"]
+        lo, hi = center - window, center + window
+
+        sub = df[df["organism"] == org]
+        n_total = ((sub["locus_num"] >= lo) & (sub["locus_num"] <= hi)).sum()
+
+        #counts.append((idx, n_total))
+        counts.append((n_total))
+
+    #candidates["window_count_total"] = pd.Series(dict(counts))
+    candidates["window_count_total"] = counts
+
+    # 5) elegir el mejor por organismo (si hay empates, queda el primero)
+    best = (
+        candidates.sort_values(["organism", "window_count_total"], ascending=[True, False])
+        .groupby("organism", as_index=False)
+        .head(1)
+        .reset_index(drop=True)
+    )
+
+    return best, candidates.sort_values(["organism", "window_count_total"], ascending=[True, False])
+
+# Use de function to pick the best locust_tag for the cog of interest
+best_goi_dataframe, candidates_dataframe = best_hit_per_organism_by_prefix(df_filtered, cog_of_interest, 300)
+
+#output candidates in a new tsv
+candidates_flag = args.out_candidates_tsv
+if candidates_flag:
+    candidates_dataframe.to_csv(candidates_flag, sep="\t", index=False)
+
+
+#----------------------------------------------------------------------------------------------------------------------------
 # Define organism from locus_tag prefix 
 df_cog["organism"] = df_cog["locus_tag"].str.split("_").str[0]
 # Sort by evalue ascending
@@ -77,9 +146,11 @@ df_cog = df_cog.sort_values(by="evalue", ascending=True)
 df_best_per_org = df_cog.drop_duplicates(subset=["organism"], keep="first")
 
 # These are the protin ids and locus_tags of the best result
-protein_interest_list = df_best_per_org["protein_id"].tolist()
+#protein_interest_list = df_best_per_org["protein_id"].tolist() 03/0
+protein_interest_list = best_goi_dataframe["protein_id"].tolist()
 protein_interest_set = set(protein_interest_list)
-locus_tag_goi = df_best_per_org["locus_tag"].tolist()
+#locus_tag_goi = df_best_per_org["locus_tag"].tolist()
+locus_tag_goi = best_goi_dataframe["locus_tag"].tolist()
 
 #------------------------------------------------------------------------------------
 # #Ordenar por evalue ascendente
