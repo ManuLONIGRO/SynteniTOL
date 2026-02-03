@@ -6,6 +6,10 @@ params.help = false
 params.inputFASTA = null
 params.cogs = null
 
+// Create new folder by result
+def run_id = new Date().format("yyyyMMdd_HHmmss")
+params.outdir = params.outdir ?: "results/run_${run_id}"
+
 // Print help message if --help is provided
 if (params.help) {
     log.info """
@@ -13,10 +17,13 @@ if (params.help) {
     
     Usage: nextflow run main.nf --inputFASTA <input_fasta_file> --cogs <cog_list> [options]
 
+    IMPORTANT: the first cog in the list will be used as reference for synteny plots.
+
     Options:
       --inputFASTA       Input FASTA file with sequences from blastp results (mandatory)
       --cogs             Comma-separated list of COGs (e.g., COG1152,COG1795) (mandatory)
-      --color_by_group   Optional parameter to color by group in iTOL files
+      --color_by_group   Optional parameter to color by group in iTOL files. (e.g. COG1229-COG1029,COG2218,COG2037 COG1229 and COG1029 will be in the same color) 
+      --outdir           Output directory (default: results/run_<timestamp>)
       --help             Show this help message and exit
       """
       exit 0
@@ -37,7 +44,7 @@ params.cogs = params.cogs ?: null // cogs list
 
 // Processes
 process efetch_to_tsv {
-    publishDir "results", mode: 'copy', overwrite: true
+    publishDir params.outdir, mode: 'copy'
     input:
     path inputFASTA
     path efetch_script
@@ -59,7 +66,7 @@ process efetch_to_tsv {
 }
 
 process mapping_taxid {
-    publishDir "results", mode: 'copy', overwrite: true
+    publishDir params.outdir, mode: 'copy'
     input:
     tuple path(taxonomy_tsv), path(protein_to_organism_map), path(mapping_pid_taxid_script)
     output:
@@ -205,7 +212,7 @@ process hmm_build_cogs {
 }
 
 process hmm_search {
-    // publishDir "hmm_search_results_dir", mode: 'copy', overwrite: true
+    // publishDir "hmm_search_results_dir", mode: 'copy'
     tag "hmm_search ${profile.simpleName}"
     input:
         tuple path(profile), val(proteomes_dir)
@@ -256,7 +263,7 @@ process ids_locustag_mapping {
 //mapped lines (protein_id -> locus_tag)
     //conda run -n syntenitol python3 ids_locustag_mapping.py \
 process merge_mappings {
-    publishDir "results", mode: 'copy', overwrite: true
+    publishDir params.outdir, mode: 'copy'
     input:
     path map_files
     output:
@@ -269,7 +276,7 @@ process merge_mappings {
 }
 
 process build_dataframe {
-    publishDir "results", mode: 'copy', overwrite: true
+    publishDir params.outdir, mode: 'copy'
     input:
     tuple path(mappings_file), path(genomes_dir), path(hmm_results_files), path(map_genes_to_tsv_script)
     output:
@@ -291,7 +298,8 @@ process build_dataframe {
     //, path(protein_map)    
 
 process files_to_synteny {
-    publishDir "results", mode: 'copy', pattern: "df_complete.tsv", overwrite: true
+    publishDir params.outdir, mode: 'copy', pattern: "df_complete.tsv"
+    publishDir params.outdir, mode: 'copy', pattern: "candidates.tsv"
 	input:
 		tuple val(cogs_csv), path(genomes_dir), path(dataframe), path(createFiles2Synteny_script), path(protein_to_organism_map)
 	output:
@@ -299,6 +307,7 @@ process files_to_synteny {
 		path "*_genomic_context_data_*_oriented", optional: true
 		path "*_genomic_context_data_*_sector", optional: true, emit: synteny_contexts
         path "df_complete.tsv", emit: df_complete
+        path "candidates.tsv", emit: candidates_tsv
 	script:
 	"""
 	out_prefix="synteny"
@@ -309,12 +318,13 @@ process files_to_synteny {
 	  --dataframe ${dataframe} \
 	  --out_prefix \${out_prefix} \
       --protein_to_organism_map_tsv ${protein_to_organism_map} \
-      --out_tsv df_complete.tsv
+      --out_tsv df_complete.tsv \
+      --out_candidates_tsv candidates.tsv
 	"""
 }
 //#conda run -n syntenitol python3 createFiles2Synteny.py \
 process itol_files {
-    publishDir "results", mode: 'copy', overwrite: true
+    publishDir params.outdir, mode: 'copy'
     input:
         tuple val(cogs_csv), val(color_by_group), path(genomic_context_file), path(presence_binary_file), path(syntenyTaxOrg_script)
     output:
@@ -341,7 +351,7 @@ process itol_files {
     """
 }
 process new_format_headers{
-    publishDir "results", mode: 'copy', overwrite:true
+    publishDir params.outdir, mode: 'copy', overwrite:true
     input:
     tuple path(inputFASTA), path(genomes_dir), path(new_formatHeaders_script)
     output:
@@ -356,7 +366,7 @@ process new_format_headers{
 }
 
 process taxonomy_itol_files {
-    publishDir "results", mode: 'copy', overwrite: true
+    publishDir params.outdir, mode: 'copy'
     input:
     tuple path(taxonomy_tsv_file), path(df_complete_tsv_file), path(fasta_file), path(taxonomy_itol_files_script)
     output:
@@ -376,7 +386,7 @@ process taxonomy_itol_files {
 }
 
 process maketree {
-    publishDir "results", mode: 'copy', overwrite: true
+    publishDir params.outdir, mode: 'copy'
     input:
     path formatted_fasta
     output:
@@ -524,7 +534,7 @@ process extract_headers {
 
 process process_headers {
     // publish results
-    publishDir "results", mode: 'copy'
+    publishDir params.outdir, mode: 'copy'
     
     input:
         path headers
