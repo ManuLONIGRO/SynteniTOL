@@ -6,6 +6,12 @@ params.help = false
 params.inputFASTA = null
 params.cogs = null
 
+// Define colors for the messages
+def RED = "\u001B[31m"
+def BLUE = "\u001B[34m"
+def YELLOW = "\u001B[33m"
+def RESET = "\u001B[0m"
+
 // Create new folder by result
 def run_id = new Date().format("yyyyMMdd_HHmmss")
 params.outdir = params.outdir ?: "results/run_${run_id}"
@@ -13,11 +19,11 @@ params.outdir = params.outdir ?: "results/run_${run_id}"
 // Print help message if --help is provided
 if (params.help) {
     log.info """
-    SynteniToL Nextflow Pipeline
+    ${BLUE}SynteniToL Nextflow Pipeline${RESET}
     
     Usage: nextflow run main.nf --inputFASTA <input_fasta_file> --cogs <cog_list> [options]
 
-    IMPORTANT: the first cog in the list will be used as reference for synteny plots.
+    ${YELLOW}IMPORTANT:${RESET} the first cog in the list will be used as reference for synteny plots.
 
     Options:
       --inputFASTA       Input FASTA file with sequences from blastp results (mandatory)
@@ -42,9 +48,19 @@ if (!params.cogs) {
 params.inputFASTA = file(params.inputFASTA) ?: null  // input file with FASTA sequences
 params.cogs = params.cogs ?: null // cogs list
 
+// Check the cogs in the list of cogs. If one COG is other thing that COGXXXX, iwth XXXX from 0001 to 5950, exit with error. Print the error in red.
+def cog_pattern = ~/^COG(0[0-9]{3}|[1-5][0-9]{3}|5950)$/
+def invalid_cogs = params.cogs.tokenize(',').collect{ it.trim() }.findAll{ !(it ==~ cog_pattern) }
+if (invalid_cogs) {
+    error "${RED}Invalid COG identifiers found: ${invalid_cogs.join(', ')}. COGs should be in the format COGXXXX, where XXXX is a number from 0001 to 5950.${RESET}"
+}
+
 // Processes
 process efetch_to_tsv {
     publishDir params.outdir, mode: 'copy'
+    errorStrategy 'retry'
+    maxRetries 5
+    maxErrors 1
     input:
     path inputFASTA
     path efetch_script
