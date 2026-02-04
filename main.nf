@@ -5,7 +5,15 @@ nextflow.enable.dsl=2
 params.help = false
 params.inputFASTA = null
 params.cogs = null
+// params.outdir = null
 // params.ncbi_api_key = null
+
+// Initialize params with Elvis operator
+// params.help = params.help ?: false
+// params.inputFASTA = params.inputFASTA ? file(params.inputFASTA) : null
+// params.cogs = params.cogs ?: null
+// params.outdir = params.outdir ?: "results/run_${run_id}"
+// params.ncbi_api_key = params.ncbi_api_key ?: null
 
 // Define colors for the messages
 def RED = "\u001B[31m"
@@ -14,6 +22,7 @@ def YELLOW = "\u001B[33m"
 def RESET = "\u001B[0m"
 
 // Create new folder by result
+// params.outdir = null
 // params.outdir = params.outdir ?: null
 
 def run_id = new Date().format("yyyyMMdd_HHmmss")
@@ -72,7 +81,7 @@ process efetch_to_tsv {
     output:
     path "protein_to_organism_map.tsv", emit: protein_to_organism_map
     path "assemblies_to_download", emit: assemblies_to_download
-    // path "taxonomy.tsv", emit: taxonomy_tsv
+    path "taxonomy.tsv", emit: taxonomy_tsv
     path "no_assembly_list.txt", emit: no_assembly_list
 
     script:
@@ -82,9 +91,42 @@ process efetch_to_tsv {
         --out_tsv protein_to_organism_map.tsv \
         --out_assemblies assemblies_to_download \
         --out_no_assembly_list no_assembly_list.txt \
+        --out_taxonomy taxonomy.tsv \
     """
 }
-//  --out_taxonomy taxonomy.tsv \
+//     extra=""
+    //    if [ -n "${params.ncbi_api_key}" ]; then
+    //      extra="--ncbi_api_key ${params.ncbi_api_key}"
+    //    fi
+
+//--------------------------------------------------
+// process efetch_to_tsv { ORIGINAL
+//     publishDir params.outdir, mode: 'copy'
+//     errorStrategy 'retry'
+//     maxRetries 8
+//     input:
+//     path inputFASTA
+//     path efetch_script
+//     output:
+//     path "protein_to_organism_map.tsv", emit: protein_to_organism_map
+//     path "assemblies_to_download", emit: assemblies_to_download
+//     path "taxonomy.tsv", emit: taxonomy_tsv
+//     path "no_assembly_list.txt", emit: no_assembly_list
+
+//     script:
+//     """
+//     conda run -n syntenitol python3 ${efetch_script} \
+//         --fasta ${inputFASTA} \
+//         --out_tsv protein_to_organism_map.tsv \
+//         --out_assemblies assemblies_to_download \
+//         --out_no_assembly_list no_assembly_list.txt \
+//         --out_taxonomy taxonomy.tsv
+//     """
+// }
+
+//--------------------------------------------------
+
+//  
 // --ncbi_api_key params.ncbi_api_key
 
 // --ncbi_api_key 9df38158a4c8ff0f747d7c64a55276d0d008
@@ -388,25 +430,25 @@ process new_format_headers{
     """
 }
 
-// process taxonomy_itol_files {
-//     publishDir params.outdir, mode: 'copy'
-//     input:
-//     tuple path(taxonomy_tsv_file), path(df_complete_tsv_file), path(fasta_file), path(taxonomy_itol_files_script)
-//     output:
-//     path "domain.itol.txt", emit: domain_itol
-//     path "phylum.itol.txt", emit: phylum_itol
-//     path "class.itol.txt", emit: class_itol
-//     script:
-//     """
-//     conda run -n syntenitol python3 ${taxonomy_itol_files_script} \
-//         --taxonomy_tsv ${taxonomy_tsv_file} \
-//         --df_complete_tsv ${df_complete_tsv_file} \
-//         --fasta_file ${fasta_file} \
-//         --domain_itol_file domain.itol.txt \
-//         --phylum_itol_file phylum.itol.txt \
-//         --class_itol_file class.itol.txt
-//     """
-// }
+process taxonomy_itol_files {
+    publishDir params.outdir, mode: 'copy'
+    input:
+    tuple path(taxonomy_tsv_file), path(df_complete_tsv_file), path(fasta_file), path(taxonomy_itol_files_script)
+    output:
+    path "domain.itol.txt", emit: domain_itol
+    path "phylum.itol.txt", emit: phylum_itol
+    path "class.itol.txt", emit: class_itol
+    script:
+    """
+    conda run -n syntenitol python3 ${taxonomy_itol_files_script} \
+        --taxonomy_tsv ${taxonomy_tsv_file} \
+        --df_complete_tsv ${df_complete_tsv_file} \
+        --fasta_file ${fasta_file} \
+        --domain_itol_file domain.itol.txt \
+        --phylum_itol_file phylum.itol.txt \
+        --class_itol_file class.itol.txt
+    """
+}
 
 process maketree {
     publishDir params.outdir, mode: 'copy'
@@ -529,10 +571,10 @@ workflow {
                                                 .combine(new_formatHeaders_script_ch))
     
     // get taxonomy itol files
-    // taxonomy_itol_files_results = taxonomy_itol_files(efetch_results.taxonomy_tsv
-    //                                                 .combine(df_complete_ch)
-    //                                                 .combine(formatted_fasta_ch)
-    //                                                 .combine(taxonomy_itol_files_script_ch))
+    taxonomy_itol_files_results = taxonomy_itol_files(efetch_results.taxonomy_tsv
+                                                    .combine(df_complete_ch)
+                                                    .combine(formatted_fasta_ch)
+                                                    .combine(taxonomy_itol_files_script_ch))
 
     // make treefile
     maketree_results = maketree(formatted_fasta_ch)
