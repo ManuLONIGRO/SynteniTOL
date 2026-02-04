@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--fasta",required=True, help="Path to input FASTA file")
 parser.add_argument("--out_tsv",required=True, help="Path to  output TSV file")
 parser.add_argument("--out_assemblies", required=True, help="Path to output assemblies file")
-#parser.add_argument("--out_taxonomy", required=True, help="Path to output taxonomy TSV file")
+parser.add_argument("--out_taxonomy", required=True, help="Path to output taxonomy TSV file")
 parser.add_argument("--out_no_assembly_list", required=True, help="Path to output nucleotide accessions with no assembly info")
 # parser.add_argument("--ncbi_api_key", required=False, help="NCBI API key to increase request limits")
 args = parser.parse_args()
@@ -27,7 +27,7 @@ args = parser.parse_args()
 fasta_path = args.fasta
 output_tsv = args.out_tsv
 output_assemblies = args.out_assemblies
-#output_taxonomy_tsv = args.out_taxonomy
+output_taxonomy_tsv = args.out_taxonomy
 output_no_assembly_list = args.out_no_assembly_list
 
 # if args.ncbi_api_key:
@@ -142,29 +142,33 @@ with open(output_tsv, "w", newline="") as f:
     writer.writeheader()
     writer.writerows(new_rows)
 #----------------------------------------------------------------------------
-# # For each assembly, get taxonomy info
-# with open(output_taxonomy_tsv, "a") as tax_file:
-#             tax_file.write(f"assembly\ttaxid\tscientific_name\trank\n") # The first line of the file
-# if assemblies:
-#     for accession in assemblies:
-#         cmd_taxonomy = f"esearch -db assembly -query {accession} \
-#             | elink -target taxonomy \
-#             | efetch -format xml \
-#             | xtract -pattern LineageEx -group Taxon -sep '\t' -tab '\n' -element TaxId,ScientificName,Rank \
-#             | awk -v acc='{accession}' 'BEGIN{{OFS=\"\t\"}} {{print acc, $0}}'"
-#         try:
-#             result_taxonomy = subprocess.check_output(cmd_taxonomy, shell=True, text=True, timeout= 40).strip()
-#         except subprocess.CalledProcessError as e:
-#             result = ""
+# For each assembly, get taxonomy info
+with open(output_taxonomy_tsv, "a") as tax_file:
+            tax_file.write(f"assembly\ttaxid\tscientific_name\trank\n") # The first line of the file
+if assemblies:
+    for accession in assemblies:
+        cmd_taxonomy = f"esearch -db assembly -query {accession} \
+            | elink -target taxonomy \
+            | efetch -format xml \
+            | xtract -pattern LineageEx -group Taxon -sep '\t' -tab '\n' -element TaxId,ScientificName,Rank \
+            | awk -v acc='{accession}' 'BEGIN{{OFS=\"\t\"}} {{print acc, $0}}'"
+        try:
+            result_taxonomy = subprocess.check_output(cmd_taxonomy, shell=True, text=True, timeout= 40).strip()
+        except subprocess.CalledProcessError as e:
+            result = ""
+            result_taxonomy = "NA\tNA\tNA\tNA"
+        except subprocess.TimeoutExpired as e:
+            result = ""
+            result_taxonomy = "NA\tNA\tNA\tNA"
         
-#         # Save taxonomy info in a file
-#         for line in result_taxonomy.splitlines():
-#             parts = line.strip().split("\t")
-#             acc = parts[0] if len(parts) > 0 else "NA"
-#             taxid = parts[1] if len(parts) > 1 else "NA"
-#             scientific_name = parts[2].replace(" ","_") if len(parts) > 2 else "NA"
-#             rank = parts[3].replace(" ","_") if len(parts) > 3 else "NA"
-#             with open(output_taxonomy_tsv, "a") as tax_file:
-#                 tax_file.write(f"{acc}\t{taxid}\t{scientific_name}\t{rank}\n")
-#         time.sleep(0.34)  # To avoid overloading NCBI servers
+        # Save taxonomy info in a file
+        for line in result_taxonomy.splitlines():
+            parts = line.strip().split("\t")
+            acc = parts[0] if len(parts) > 0 else "NA"
+            taxid = parts[1] if len(parts) > 1 else "NA"
+            scientific_name = parts[2].replace(" ","_") if len(parts) > 2 else "NA"
+            rank = parts[3].replace(" ","_") if len(parts) > 3 else "NA"
+            with open(output_taxonomy_tsv, "a") as tax_file:
+                tax_file.write(f"{acc}\t{taxid}\t{scientific_name}\t{rank}\n")
+        time.sleep(0.34)  # To avoid overloading NCBI servers
 
