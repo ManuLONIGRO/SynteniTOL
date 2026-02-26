@@ -34,7 +34,7 @@ formatted_evalue = f"{choose_evalue:.0e}"  # scientific notation for filenames
 # Load dataframe and build lookups
 print(f"Reading dataframe from {args.dataframe}")
 
-df = pd.read_csv(args.dataframe, sep="\t")
+df = pd.read_csv(args.dataframe, sep="\t", dtype={'protein_id': str})
 # Filter by coverage
 df_filtered = df[df["coverage"] > 0.60]
 
@@ -176,7 +176,7 @@ locus_goi_set = locus_tags_cog_list #works
 
 # Rows for the new tsv with species info
 rows_to_tsv = []
-# Charge protein_to_organism_map.tsv to build dict protein: organism,isolate
+# Load protein_to_organism_map.tsv to build dict protein: organism,isolate
 
 def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: set):
 
@@ -184,14 +184,14 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
     if not records:
         return None
 
-    best_contig_genes: List[Tuple[int, int, int, str, str]] = []
+    best_contig_genes: List[Tuple[str, str, str, str, str]] = []
     best_contig_len = 0
     taxid = None
     # isolate = "NA"
 
     # choose only the contig that contains the GOI; if multiple, pick the one with more genes
     for record in records:
-        contig_genes: List[Tuple[int, int, int, str, str]] = []
+        contig_genes: List[Tuple[str, str, str, str, str]] = []
         contains_goi = False
         local_taxid = "NA"
         local_isolate = "NA"
@@ -224,7 +224,7 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
                 if locus_tag in locus_tag_goi: #new line
                     contains_goi = True
                 if local_protein_id in protein_interest_set:
-                    print(f"Found local protein id {local_protein_id}")
+                    print(f"Found local protein id {local_protein_id} in protein_interest_set")
                     rows_to_tsv.append({
                         "protein_id": local_protein_id,
                         "local_taxid": local_taxid,
