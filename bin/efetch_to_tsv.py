@@ -21,7 +21,7 @@ parser.add_argument("--out_tsv",required=True, help="Path to  output TSV file")
 parser.add_argument("--out_assemblies", required=True, help="Path to output assemblies file")
 parser.add_argument("--out_taxonomy", required=True, help="Path to output taxonomy TSV file")
 parser.add_argument("--out_no_assembly_list", required=True, help="Path to output nucleotide accessions with no assembly info")
-# parser.add_argument("--ncbi_api_key", required=False, help="NCBI API key to increase request limits")
+parser.add_argument("--ncbi_api_key", required=False, help="NCBI API key to increase request limits")
 args = parser.parse_args()
 
 fasta_path = args.fasta
@@ -29,9 +29,11 @@ output_tsv = args.out_tsv
 output_assemblies = args.out_assemblies
 output_taxonomy_tsv = args.out_taxonomy
 output_no_assembly_list = args.out_no_assembly_list
+user_ncbi_api_key = False
 
-# if args.ncbi_api_key:
-#     os.environ["NCBI_API_KEY"] = args.ncbi_api_key
+if args.ncbi_api_key:
+    os.environ["NCBI_API_KEY"] = args.ncbi_api_key
+    user_ncbi_api_key = True
 
 protein_id_list = []
 with open(fasta_path) as fasta:
@@ -170,5 +172,11 @@ if assemblies:
             rank = parts[3].replace(" ","_") if len(parts) > 3 else "NA"
             with open(output_taxonomy_tsv, "a") as tax_file:
                 tax_file.write(f"{acc}\t{taxid}\t{scientific_name}\t{rank}\n")
-        time.sleep(0.34)  # To avoid overloading NCBI servers
+        if user_ncbi_api_key:
+            print("Using your NCBI API KEY")
+            time.sleep(0.15)
+        else:
+            time.sleep(0.35) # To avoid overloading NCBI servers
+        
+    
 
