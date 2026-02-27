@@ -9,6 +9,7 @@ nextflow.enable.dsl=2
 
 // params.outdir = params.outdir ?: "results/run_${run_id}"
 
+
 // Processes
 process efetch_to_tsv {
     publishDir params.outdir, mode: 'copy'
@@ -151,59 +152,58 @@ process gbff_to_proteomes {
 }
 
 process download_cogs {
+    tag { cog }
     input:
-    val cogs_list // List of cogs from the user. COG1152,COG1795,...
+    val cog
     output:
-    path "cogs/*.fa", emit: cog_file
-    path "cogs.tsv", emit: cogs_tsv
-    
+    tuple val(cog), path("cogs/${cog}.fa"),  emit: cog_file
+    tuple val(cog), path("cogs/${cog}.tsv"), emit: cog_tsv
+
     script:
     """
     set -euo pipefail
     mkdir -p cogs
-    
-    # Creates a file with the list of cogs
-    printf "%s\n" ${cogs_list.collect{ cog -> "'${cog}'" }.join(' ')} > cogs_ids.txt
 
-    # Get accesion and title for each COG
-    efetch -db cdd -id ${cogs_list.join(',')} -format docsum | xtract -pattern DocumentSummary -element Accession,Title > cogs.tsv
-    
-    # Download each COG fasta file
-    while read cog; do
-        echo "Downloading \$cog ..."
-        wget "https://ftp.ncbi.nlm.nih.gov/pub/COG/COG2020/data/fasta/\$cog.fa.gz" -O - | gunzip > cogs/\$cog.fa
-    done < cogs_ids.txt
+    # Get accession and title for this COG
+    efetch -db cdd -id "${cog}" -format docsum \
+      | xtract -pattern DocumentSummary -element Accession,Title \
+      > "cogs/${cog}.tsv"
+
+    # Download this COG fasta file
+    echo "Downloading ${cog} ..."
+    wget "https://ftp.ncbi.nlm.nih.gov/pub/COG/COG2020/data/fasta/${cog}.fa.gz" -O - \
+      | gunzip > "cogs/${cog}.fa"
     """
 }
 
 process hmm_build_cogs {
-    tag "hmm_build on ${cog_file}"
+    tag { cog }
     input:
-    path cog_file
+    tuple val(cog), path(cog_file)
     output:
-    path "profile_*.hmm",emit:profile_file
+    tuple val(cog), path("profile_${cog}.hmm"), emit: profile_file
     script:
     """
     #mkdir -p cogs_profiles
 
-    base_name=\$(basename "${cog_file}" .fa)
+    base_name="${cog}"
     cdhit -i ${cog_file} -o "\${base_name}_hit" -c 0.9
     awk '/^>/{if(seq)print seq;print;seq="";next}{gsub(/[ \t\r]/,"");seq=seq\$0}END{if(seq)print seq}' "\${base_name}_hit" > "\${base_name}_hit_oneline"
     head -n 1000 "\${base_name}_hit_oneline" > "\${base_name}_hit_oneline_limited"
     mafft --auto --anysymbol "\${base_name}_hit_oneline_limited" > "\${base_name}_alin"
     hmmbuild "profile_\${base_name}.hmm" "\${base_name}_alin"
-    #mv "profile_\${base_name}.hmm" cogs_profiles/
+    #mv "profile_\${base_name}.hmm" "profile_${cog}.hmm"
     """
 }
 
 process hmm_search {
     // publishDir "hmm_search_results_dir", mode: 'copy'
-    tag "hmm_search ${profile.simpleName}"
+    tag { "hmm_search ${cog}" }
     input:
-        tuple path(profile), val(proteomes_dir)
+        tuple val(cog), path(profile), val(proteomes_dir)
     output:
     //path "hmm_*.result", emit: hmm_result_file
-    path "*.result", emit: hmm_result_file
+    tuple val(cog), path("*.result"), emit: hmm_result_file
     
     script:
     """
@@ -220,9 +220,9 @@ process ids_locustag_mapping {
     input:
     //path hmm_result_file
     //path genomes_dir
-    tuple path(hmm_result_file), path(genomes_dir), path(ids_locustag_mapping_script)
+    tuple val(cog), path(hmm_result_file), path(genomes_dir), path(ids_locustag_mapping_script)
     output:
-    path "mappings/*.map", emit: mapped_file
+    tuple val(cog), path("mappings/*.map"), emit: mapped_file
 
     script:
     """
@@ -363,17 +363,22 @@ process maketree {
     input:
     path formatted_fasta
     output:
-    path "tree.nwk"
+    path "tree_${params.run_id}.nwk"
 
     script:
     """
     mafft --auto ${formatted_fasta} > aligned.fasta
     conda run -n syntenitol bmge -i aligned.fasta -o-of trimmed.fasta -m BLOSUM30 -t AA -h 0.5
-    fasttree trimmed.fasta > tree.nwk
+    fasttree trimmed.fasta > tree_${params.run_id}.nwk
     """
 }
 
 workflow {
+    // Create a command.txt with workflow.commandline
+    def runDir = file(params.outdir ?: "results/run_${params.run_id}")
+    runDir.mkdirs()
+    file("${params.outdir}/run_command.txt").text = workflow.commandLine + '\n'
+
     // Define colors for the messages
     def RED = "\u001B[31m"
     def BLUE = "\u001B[34m"
@@ -402,12 +407,19 @@ workflow {
 
     // Validate mandatory parameters
     if (!params.inputFASTA)   {error "Missing --inputFASTA. Use --help for usage."}
-    if (!params.cogs)         {error "Missing --cogs. Use --help for usage."}
     if (!params.ncbi_api_key) {log.warn "${YELLOW}Warning: No NCBI API key provided. You may encounter rate limits when fetching data from NCBI.${RESET}"}
+
+    // Parse and validate COG list safely (params.cogs may be null/empty)
+    def cogs_list = (params.cogs ?: '')
+        .tokenize(',')
+        .collect { it.trim() }
+        .findAll { it }
+
+    if (cogs_list.isEmpty()) { error "Missing --cogs. Use --help for usage." }
 
     // Check the cogs in the list of cogs. If one COG is other thing that COGXXXX, with XXXX from 0001 to 5950, exit with error. Print the error in red.
     def cog_pattern = ~/^COG(0[0-9]{3}|[1-5][0-9]{3}|5950)$/
-    def invalid_cogs = params.cogs.tokenize(',').collect{ it.trim() }.findAll{ !(it ==~ cog_pattern) }
+    def invalid_cogs = cogs_list.findAll { !(it ==~ cog_pattern) }
     if (invalid_cogs) {
         error "${RED}Invalid COG identifiers found: ${invalid_cogs.join(', ')}. COGs should be in the format COGXXXX, where XXXX is a number from 0001 to 5950.${RESET}"
     }
@@ -489,20 +501,15 @@ workflow {
     // Creates proteomes from gbff
     proteomes_dir = gbff_to_proteomes(all_genomes_dir.combine(gbff2prot_script_ch))
 
-    // convert string "COG1152,COG1795" to list ['COG1152','COG1795']
-    cogs_list = params.cogs.tokenize(',')*.trim()
-    //cog_list_ch = channel.fromList(cogs_list) //COG1121\nCOG1795
-    //cog_list_ch.view()
+    // One item per COG for fine-grained caching
+    cogs_ch = channel.fromList(cogs_list)
 
-    // Download COGs from the list in the input cog
-    download_cogs_results = download_cogs(cogs_list)
+    // Download each COG independently (one task per COG)
+    download_cogs_results = download_cogs(cogs_ch)
     cog_files_ch = download_cogs_results.cog_file
 
-    // Flatten channel of cog files
-    separate_cogs_ch = cog_files_ch.flatten()
-
     // Build HMM profiles for each COG
-    cog_profiles = hmm_build_cogs(separate_cogs_ch).profile_file
+    cog_profiles = hmm_build_cogs(cog_files_ch).profile_file
     //cog_profiles.view() //los cogs por separado
 
     // HMM search of each COG profiles against proteomes
@@ -511,26 +518,27 @@ workflow {
             .combine(proteomes_dir)).hmm_result_file
  
     // Mapping ids_locustag
-    separate_hmm_results = hmm_search_results.flatten()
+    // hmm_search emits (cog, [result_files]) per profile; expand to one (cog, result_file) per item
+    separate_hmm_results = hmm_search_results.flatMap { cog, files -> files.collect { f -> [cog, f] } }
     
     mapping_hmm_results = ids_locustag_mapping(
         separate_hmm_results
             .combine(all_genomes_dir)
             .combine(ids_locustag_mapping_script_ch)).mapped_file
 
-    final_mapped = merge_mappings(mapping_hmm_results.collect())
+    final_mapped = merge_mappings(mapping_hmm_results.map { cog, f -> f }.collect())
     
     // Build final dataframe TSV (collect a single flat list of result files)
     map_df = build_dataframe(
         final_mapped
             .combine(all_genomes_dir)
-            .combine(separate_hmm_results.collect().toList())
+            .combine(separate_hmm_results.map { cog, f -> f }.collect().toList())
             .combine(map_genes_to_tsv_script_ch)
             //.combine(efetch_results.protein_to_organism_map)
     ).dataframe_tsv
     
     // Run synteny file generation on the produced dataframe
-    cogs_csv = params.cogs
+    cogs_csv = cogs_list.join(',')
 
     synteny_results = files_to_synteny(
         channel.value(cogs_csv)
