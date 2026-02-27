@@ -132,12 +132,12 @@ for linea in lineas:
 
 # ---------- Synteny (iTOL domains) ----------
 with open(archivo_sintenia, "w") as f, open(archivo_log, "w") as log_file:
-    f.write(f"""DATASET_DOMAINS
+    f.write(f"""DATASET_ARROWS
 SEPARATOR COMMA
 DATASET_LABEL,Synteny_{gene_of_interest}
 COLOR,#0000ff
+WIDTH,3000
 BORDER_WIDTH,0.5
-SHOW_DOMAIN_LABELS,0
 
 DATA
 """)
@@ -167,16 +167,22 @@ DATA
         # Collect genes mapped to window with coloring
         for gene in genes:
             start, end, strand, gene_name, locus_tag = gene
+            #head_arrow = 300 if abs(end - start) > 310 else 200 if abs(end - start) > 210 else 100  # Short genes get smaller heads avoiding an error in iTOL
             color = genes_color_dic.get(gene_name, "#FFFFFF")
-            direction = "PL" if strand == -1 else "PR"
+            #direction, head_width_left, head_width_right = ("left", "0", head_arrow) if strand == -1 else ("right", head_arrow, "0")
             if context_inicio <= start <= context_fin:
                 start_reference = start - start_goi + 50000
                 end_reference = end - start_goi + 50000
-                gene_entry_context = f"{direction}|{start_reference}|{end_reference}|{color}|{gene_name}"
+                head_arrow = 300 if abs(end_reference - start_reference) > 310 else 200 if abs(end_reference - start_reference) > 210 else 100 if abs(end_reference - start_reference) > 110 else 30  # Short genes get smaller heads avoiding an error in iTOL
+                # iTOL arrow direction is controlled by which side has a non-zero head width:
+                # - head on the LEFT  => arrow points LEFT  (strand -1)
+                # - head on the RIGHT => arrow points RIGHT (strand +1)
+                direction, head_width_left, head_width_right = ("left", head_arrow, "0") if strand == -1 else ("right", "0", head_arrow)
+                gene_entry_context = f"{start_reference}|{end_reference}|{color}|{color}|{gene_name}|#000000|1|0.5|{head_width_left}|{head_width_right}"
                 gene_context.append(gene_entry_context)
 
         log_file.write(f"Context of {gene_of_interest} of {organism_name}\n{gene_context}\n\n")
-        f.write(f"{organism_name},105000,{','.join(gene_context)}\n")
+        f.write(f"{organism_name},120000,{','.join(gene_context)}\n")
 
 # ---------- Binary profiling ----------
 organism_gene_presence: Dict[str, Dict[str, str]] = {}
