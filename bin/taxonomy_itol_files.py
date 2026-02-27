@@ -29,7 +29,7 @@ args = parser.parse_args()
 # Load taxonomy.tsv
 taxonomy_tsv = args.taxonomy_tsv
 
-df_tax = pd.read_csv(taxonomy_tsv, sep="\t",names=["assembly","taxid","scientific_name","rank"])
+df_tax = pd.read_csv(taxonomy_tsv, sep="\t",names=["assembly","taxid","scientific_name","rank"], dtype={'assembly':str, 'taxid':str})
 df_tax = df_tax[df_tax["rank"].isin(["domain","phylum","class"])]
 
 # dictionary | assembly -> rank: scientific_name
@@ -39,7 +39,7 @@ for _, row in df_tax.iterrows():
 
 # Load df_complete.tsv
 df_complete_tsv = args.df_complete_tsv
-df_complete = pd.read_csv(df_complete_tsv, sep="\t")
+df_complete = pd.read_csv(df_complete_tsv, sep="\t",dtype={'local_taxid': str})
 
 # Dictionary | taxid: assembly
 taxid_to_assembly = dict(zip(df_complete["local_taxid"].astype(str), df_complete["assembly"]))
@@ -69,8 +69,6 @@ for record in SeqIO.parse(fasta_file, "fasta"):
     dic_phylum[header] = tax.get("phylum", "NA")
     dic_class[header] = tax.get("class", "NA")
 
-
-
 #-------------------------------------------------------------------------------------------------
 # Valores unicos 
 unique_values_phylum_conAsgard = list(set(dic_phylum.values())) #Contain desglosed groups of Asgard
@@ -96,6 +94,9 @@ phylums_to_replace = [
     "Candidatus Wukongarchaeota",
     "Candidatus Kariarchaeota",
     "Candidatus Njordarchaeota",
+    "Candidatus Idunnarchaeota",
+    "Candidatus Friggarchaeota",
+    "Candidatus Yidarchaeota",
 ]
 
 # New name
