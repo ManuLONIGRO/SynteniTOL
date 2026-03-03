@@ -272,7 +272,8 @@ process build_dataframe {
 process files_to_synteny {
     publishDir params.outdir, mode: 'copy', pattern: "df_complete.tsv"
     publishDir params.outdir, mode: 'copy', pattern: "candidates.tsv"
-	input:
+	publishDir params.outdir, mode: 'copy', pattern: "best_goi.tsv"
+    input:
 		tuple val(cogs_csv), path(genomes_dir), path(dataframe), path(createFiles2Synteny_script), path(protein_to_organism_map)
 	output:
 		path "*_presence_binary_data_*", optional: true, emit: presence_binary_data
@@ -280,6 +281,8 @@ process files_to_synteny {
 		path "*_genomic_context_data_*_sector", optional: true, emit: synteny_contexts
         path "df_complete.tsv", emit: df_complete
         path "candidates.tsv", emit: candidates_tsv
+        path "best_goi.tsv", emit: best_goi_tsv
+
 	script:
 	"""
 	out_prefix="synteny"
@@ -291,14 +294,15 @@ process files_to_synteny {
 	  --out_prefix \${out_prefix} \
       --protein_to_organism_map_tsv ${protein_to_organism_map} \
       --out_tsv df_complete.tsv \
-      --out_candidates_tsv candidates.tsv
+      --out_candidates_tsv candidates.tsv \
+      --out_best_goi_tsv best_goi.tsv
 	"""
 }
 
 process itol_files {
     publishDir params.outdir, mode: 'copy'
     input:
-        tuple val(cogs_csv), val(color_by_group), path(genomic_context_file), path(presence_binary_file), path(syntenyTaxOrg_script)
+        tuple val(cogs_csv), val(color_by_group), path(genomic_context_file), path(presence_binary_file), path(best_goi_tsv) , path(syntenyTaxOrg_script)
     output:
         path "itol_synteny_oriented.txt", emit: itol_synteny
         path "itol_binary.txt", emit: itol_binary
@@ -317,6 +321,7 @@ process itol_files {
       \${extra} \
       --genomic_context_data ${genomic_context_file} \
       --presence_binary_data ${presence_binary_file} \
+      --best_goi_tsv ${best_goi_tsv} \
       --itol_synteny_file itol_synteny_oriented.txt \
       --synteny_log synteny.log \
       --itol_profiling_file itol_binary.txt
@@ -374,7 +379,7 @@ process maketree {
 }
 
 workflow {
-    // Create a command.txt with workflow.commandline
+    // Create a command.txt with workflow.commandline in the output directory for reproducibility
     def runDir = file(params.outdir ?: "results/run_${params.run_id}")
     runDir.mkdirs()
     file("${params.outdir}/run_command.txt").text = workflow.commandLine + '\n'
@@ -550,6 +555,7 @@ workflow {
     synteny_context_data = synteny_results.synteny_contexts
     presence_binary_data = synteny_results.presence_binary_data
     df_complete_ch = synteny_results.df_complete
+    best_goi_tsv_ch = synteny_results.best_goi_tsv
 
     // Build iTOL files
     color_group_opt = params.color_by_group ?: ""
@@ -558,6 +564,7 @@ workflow {
             .combine(channel.value(color_group_opt))
             .combine(synteny_context_data)
             .combine(presence_binary_data)
+            .combine(best_goi_tsv_ch)
             .combine(syntenyTaxOrg_script_ch)
     )
 
