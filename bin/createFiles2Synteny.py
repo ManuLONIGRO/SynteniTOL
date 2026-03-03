@@ -26,6 +26,7 @@ parser.add_argument("--cogs", type=str, default=None, help="Comma-separated COG 
 parser.add_argument("--protein_to_organism_map_tsv", type=str, required=True, help="Path to protein_to_organism_map.tsv file")
 parser.add_argument("--out_tsv", type=str, required=True, help="Path to output TSV file with species info")
 parser.add_argument("--out_candidates_tsv", type=str, required=False, help="Path to output candidates TSV file")
+parser.add_argument("--out_best_goi_tsv", type=str, required=False, help="Path to output best GOI per organism TSV file")
 args = parser.parse_args()
 
 choose_evalue = args.evalue
@@ -69,71 +70,159 @@ df_cog= df_filtered[
     (df_filtered["evalue"] <= choose_evalue)].copy()
 df_cog["organism"] = df_cog["locus_tag"].str.split("_").str[0]
 # df_cog["position_in_genome"] = df_cog["locus_tag"].str.split("_").str[1].astype(int)
+#%%
+# # Function to pick best locus_tag by density of genes in the context window of 600
+# def best_hit_per_organism_by_prefix(
+#     df,
+#     cog_of_interest=cog_of_interest,
+#     window=300,
+#     locus_col="locus_tag",
+#     cog_col="gene",
+# ):
+#     df = df.copy()
 
-# Function to pick best locus_tag by density of genes in the context window of 600
+#     # 1) organismo = prefijo antes del primer "_"
+#     df["organism"] = df[locus_col].astype(str).str.split("_", n=1).str[0]
+
+#     # 2) número del locus_tag (últimos dígitos)
+#     # df["locus_num"] = df[locus_col].astype(str).str.extract(r"(\d+)$")[0]
+#     # df = df.dropna(subset=["locus_num"])
+#     # df["locus_num"] = df["locus_num"].astype(int)
+#     df["locus_num"] = (
+#     df[locus_col]
+#     .astype(str)
+#     .str.extract(r"(\d+)(?!.*\d)", expand=False)  # último grupo numérico del string
+# )
+#     df = df.dropna(subset=["locus_num"])
+#     df["locus_num"] = df["locus_num"].astype(int)
+
+#     # 3) filtrar candidatos (solo filas del COG de interés)
+#     candidates = df[df[cog_col] == cog_of_interest].copy()
+
+#     if candidates.empty:
+#         return pd.DataFrame()
+
+#     # 4) contar cuántas proteínas hay en la ventana ±window para cada candidato
+#     counts = []
+#     for idx, row in candidates.iterrows():
+#         org = row["organism"]
+#         center = row["locus_num"]
+#         lo, hi = center - window, center + window
+
+#         sub = df[df["organism"] == org]
+#         n_total = ((sub["locus_num"] >= lo) & (sub["locus_num"] <= hi)).sum()
+
+#         #counts.append((idx, n_total))
+#         counts.append((n_total))
+
+#     #candidates["window_count_total"] = pd.Series(dict(counts))
+#     candidates["window_count_total"] = counts
+
+#     # 5) elegir el mejor por organismo (si hay empates, queda el primero)
+#     best = (
+#         candidates.sort_values(["organism", "window_count_total"], ascending=[True, False])
+#         .groupby("organism", as_index=False)
+#         .head(1)
+#         .reset_index(drop=True)
+#     )
+
+#     return best, candidates.sort_values(["organism", "window_count_total"], ascending=[True, False])
+
+# # Use de function to pick the best locust_tag for the cog of interest
+# best_goi_dataframe, candidates_dataframe = best_hit_per_organism_by_prefix(df_filtered, cog_of_interest, 300)
+#%%
 def best_hit_per_organism_by_prefix(
     df,
-    cog_of_interest="COG4927",
+    cog_of_interest=cog_of_interest,
+    gene_list=None,
     window=300,
     locus_col="locus_tag",
     cog_col="gene",
+    evalue_threshold=1e-60
 ):
     df = df.copy()
+    if gene_list is None:
+        gene_list = [cog_of_interest]
 
-    # 1) organismo = prefijo antes del primer "_"
+    # 1) Define organism and extract numeric locus part
     df["organism"] = df[locus_col].astype(str).str.split("_", n=1).str[0]
-
-    # 2) número del locus_tag (últimos dígitos)
-    # df["locus_num"] = df[locus_col].astype(str).str.extract(r"(\d+)$")[0]
-    # df = df.dropna(subset=["locus_num"])
-    # df["locus_num"] = df["locus_num"].astype(int)
     df["locus_num"] = (
-    df[locus_col]
-    .astype(str)
-    .str.extract(r"(\d+)(?!.*\d)", expand=False)  # último grupo numérico del string
-)
+        df[locus_col]
+        .astype(str)
+        .str.extract(r"(\d+)(?!.*\d)", expand=False) 
+    )
     df = df.dropna(subset=["locus_num"])
     df["locus_num"] = df["locus_num"].astype(int)
 
-    # 3) filtrar candidatos (solo filas del COG de interés)
+    # 2) Filter candidates (rows matching the specific COG of interest)
     candidates = df[df[cog_col] == cog_of_interest].copy()
-
     if candidates.empty:
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
 
-    # 4) contar cuántas proteínas hay en la ventana ±window para cada candidato
-    counts = []
+    # 3) Calculate Density and Centrality
+    # Identify High Confidence hits (Tiering)
+    # True (1) is sorted higher than False (0) when using ascending=False
+    candidates["is_high_confidence"] = candidates["evalue"] <= evalue_threshold
+    density_counts = []
+    centrality_scores = []
+
     for idx, row in candidates.iterrows():
         org = row["organism"]
         center = row["locus_num"]
         lo, hi = center - window, center + window
 
-        sub = df[df["organism"] == org]
-        n_total = ((sub["locus_num"] >= lo) & (sub["locus_num"] <= hi)).sum()
+        # Get all "target" genes in this organism's window
+        sub = df[(df["organism"] == org) & (df["gene"].isin(gene_list))]
+        neighbors = sub[(sub["locus_num"] >= lo) & (sub["locus_num"] <= hi)]
+        
+        # Density: count of target genes
+        n_total = len(neighbors)
+        density_counts.append(n_total)
 
-        #counts.append((idx, n_total))
-        counts.append((n_total))
+        # Centrality: Mean absolute distance to neighbors 
+        # (Lower is better/more centered)
+        if n_total > 1:
+            mean_dist = (neighbors["locus_num"] - center).abs().mean()
+        else:
+            mean_dist = 0 # Solo gene is technically centered
+        centrality_scores.append(mean_dist)
 
-    #candidates["window_count_total"] = pd.Series(dict(counts))
-    candidates["window_count_total"] = counts
+    candidates["window_count_total"] = density_counts
+    candidates["centrality_score"] = centrality_scores
 
-    # 5) elegir el mejor por organismo (si hay empates, queda el primero)
-    best = (
-        candidates.sort_values(["organism", "window_count_total"], ascending=[True, False])
-        .groupby("organism", as_index=False)
-        .head(1)
-        .reset_index(drop=True)
+    # 4) The "Context-First" Sorting Strategy
+    # - is_high_confidence: Descending (High confidence hits first)
+    # - window_count_total: Descending (Most neighbors next)
+    # - centrality_score: Ascending (Most centered)
+    # - evalue: Ascending (Final tie-break match quality)
+    # - locus_num: Ascending (Deterministic fallback)
+    
+    sorted_candidates = candidates.sort_values(
+        by=["organism", "is_high_confidence", "window_count_total", "centrality_score", "evalue", "locus_num"],
+        ascending=[True, False, False, True, True, True]
     )
 
-    return best, candidates.sort_values(["organism", "window_count_total"], ascending=[True, False])
+    # 5) Choose the best one per organism
+    best = sorted_candidates.groupby("organism", as_index=False).head(1).reset_index(drop=True)
 
-# Use de function to pick the best locust_tag for the cog of interest
-best_goi_dataframe, candidates_dataframe = best_hit_per_organism_by_prefix(df_filtered, cog_of_interest, 300)
+    return best, sorted_candidates
 
+# Usage remains the same:
+best_goi_dataframe, candidates_dataframe = best_hit_per_organism_by_prefix(
+    df_filtered, 
+    cog_of_interest, 
+    gene_list=gene_list, # Passes the whole list for density/centrality
+    window=300
+)
+#%%
 #output candidates in a new tsv
 candidates_flag = args.out_candidates_tsv
 if candidates_flag:
     candidates_dataframe.to_csv(candidates_flag, sep="\t", index=False)
+
+best_goi_dataframe_tsv_flag = args.out_best_goi_tsv
+if best_goi_dataframe_tsv_flag:
+    best_goi_dataframe.to_csv(best_goi_dataframe_tsv_flag, sep="\t", index=False)
 
 
 #----------------------------------------------------------------------------------------------------------------------------
@@ -202,9 +291,9 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
         for feature in record.features:
             if feature.type == "source":
                 db_xrefs = feature.qualifiers.get("db_xref", [])
-                local_isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_").replace(";","")
-                local_strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_").replace(";","")
-                local_species = feature.qualifiers.get("organism", ["NA"])[0].replace(" ", "_").replace(";","")
+                local_isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_").replace(";","").replace(":","_")
+                local_strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_")
+                local_species = feature.qualifiers.get("organism", ["NA"])[0].replace(" ", "_").replace(";","").replace(":","_")
                 for xref in db_xrefs:
                     if xref.startswith("taxon:"):
                         local_taxid = xref.split(":")[1]
@@ -386,7 +475,7 @@ with open(oriented_out, "r") as infile, open(sector_out, "w") as outfile:
         genes_oriented = context_goi(genes)
         outfile.write(f"{(header, genome_length, genes_oriented)}\n")
 
-# Charge protein_to_organism_map.tsv
+# Load protein_to_organism_map.tsv
 map_tsv = args.protein_to_organism_map_tsv
 df_organism_map = pd.read_csv(map_tsv, sep="\t").rename(columns={'protein': 'protein_id'})
 
