@@ -17,6 +17,7 @@ import ast
 import argparse
 import colorsys
 from typing import Dict, List, Tuple
+import pandas as pd
 
 
 def parse_args():
@@ -31,6 +32,7 @@ def parse_args():
     parser.add_argument("--synteny_log", type=str, required=True, help="Output path for synteny log file")
     parser.add_argument("--presence_binary_data", type=str, required=True, help="Path to presence binary data file")
     parser.add_argument("--itol_profiling_file", type=str, required=True, help="Output path for itol binary data file")
+    parser.add_argument("--best_goi_tsv", type=str, required=True, help="Path to best GOI per organism TSV file")
     return parser.parse_args()
 
 
@@ -130,6 +132,11 @@ for linea in lineas:
     genes = parsed_line[2]
     datos.append((organism_name, genome_length, genes))
 
+# ----------- Load best_goi.tsv ----------------
+best_goi_tsv = args.best_goi_tsv
+best_goi_df = pd.read_csv(best_goi_tsv, sep="\t")
+best_goi_locustags_list = best_goi_df["locus_tag"].tolist()
+
 # ---------- Synteny (iTOL domains) ----------
 with open(archivo_sintenia, "w") as f, open(archivo_log, "w") as log_file:
     f.write(f"""DATASET_ARROWS
@@ -154,7 +161,8 @@ DATA
         # Find GOI to set context window
         for gene in genes:
             start, end, strand, gene_name, locus_tag = gene
-            if gene_name == gene_of_interest:
+            if locus_tag in best_goi_locustags_list:
+                print(f"Found {locus_tag} in {organism_name} as GOI at {start}-{end} (strand {strand})")
                 start_goi = start
                 context_inicio = start - 50000
                 context_fin = end + 50000
