@@ -204,7 +204,7 @@ with open(phylum_itol_file, 'w') as phyl_file:
     phyl_file.write("LEGEND_LABELS," + ",".join(phylum_labels) + "\n")
     phyl_file.write("DATA\n")
     for taxid, phylum in tqdm(dic_phylum.items()):
-        taxid = taxid.replace("(","").replace(")","") # The "()" make troubles in the treefile, it take it like a new node
+        taxid = taxid.replace("(","_").replace(")","_") # The "()" make troubles in the treefile, it take it like a new node
         color = phylum_color_map.get(phylum, "#FFFFFF")  # White if the phylum is not mapped
         phyl_file.write(f"{taxid},{color}\n")
 
@@ -220,7 +220,7 @@ with open(class_itol_file, 'w') as class_file:
     class_file.write("LEGEND_LABELS," + ",".join(class_labels) + "\n")
     class_file.write("DATA\n")
     for taxid, class_ in tqdm(dic_class.items()):
-        taxid = taxid.replace("(","").replace(")","")
+        taxid = taxid.replace("(","_").replace(")","_")
         color = class_color_map.get(class_, "#FFFFFF")  # White if the class is not mapped
         class_file.write(f"{taxid},{color}\n")
 
@@ -236,7 +236,7 @@ with open(domain_itol_file, 'w') as domain_file:
     domain_file.write("LEGEND_LABELS," + ",".join(domain_labels) + "\n")
     domain_file.write("DATA\n")
     for taxid,domain_ in tqdm(dic_domain.items()):
-        taxid = taxid.replace("(","").replace(")","")
+        taxid = taxid.replace("(","_").replace(")","_")
         color = domain_color_map.get(domain_, "#FFFFFF")  # White if the domain is not mapped
         domain_file.write(f"{taxid},{color}\n")
 
