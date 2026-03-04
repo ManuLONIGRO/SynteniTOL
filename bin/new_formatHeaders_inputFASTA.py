@@ -56,9 +56,9 @@ for gbff_file in os.listdir(genomes_dir):
                         if xref.startswith("taxon:"):
                             taxid = xref.split(":")[1]
                             break
-                    organism = feature.qualifiers.get("organism", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_")
-                    strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_")
-                    isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_")
+                    organism = feature.qualifiers.get("organism", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("(","_").replace(")","_")
+                    strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("(","_").replace(")","_")
+                    isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("(","_").replace(")","_")
 
                     # # taxid
                     # if "db_xref" in feature.qualifiers:
@@ -89,9 +89,9 @@ with open(input_fasta, "r") as infile, open(output_fasta, "w") as outfile:
             if protein_id in protein_id_to_info:
                 info = protein_id_to_info[protein_id]
                 taxid = info.get("taxid", "")
-                species_name = info.get("organism", "NA").replace(" ", "_").replace(";","_").replace(":","_")
-                strain = info.get("strain", "NA").replace(" ", "_").replace(";","_").replace(":","_")
-                isolate = info.get("isolate", "NA").replace(" ", "_").replace(";","_").replace(":","_")
+                species_name = info.get("organism", "NA").replace(" ", "_").replace(";","_").replace(":","_").replace("(","_").replace(")","_")
+                strain = info.get("strain", "NA").replace(" ", "_").replace(";","_").replace(":","_").replace("(","_").replace(")","_")
+                isolate = info.get("isolate", "NA").replace(" ", "_").replace(";","_").replace(":","_").replace("(","_").replace(")","_")
                 # Count repetitions
                 header = f">{taxid}|{species_name}|{strain}|{isolate}"
                 if header not in header_count:
