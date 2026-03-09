@@ -138,7 +138,8 @@ def best_hit_per_organism_by_prefix(
     window=300,
     locus_col="locus_tag",
     cog_col="gene",
-    evalue_threshold=1e-60
+    evalue_threshold=1e-60,
+    coverage_threshold=0.90
 ):
     df = df.copy()
     if gene_list is None:
@@ -197,12 +198,15 @@ def best_hit_per_organism_by_prefix(
     # - evalue: Ascending (Final tie-break match quality)
     # - locus_num: Ascending (Deterministic fallback)
     
+    # 5) identify good coverage hits
+    candidates["is_good_coverage"] = candidates["coverage"] >= coverage_threshold
+
     sorted_candidates = candidates.sort_values(
-        by=["organism", "is_high_confidence", "window_count_total", "centrality_score", "evalue", "locus_num"],
-        ascending=[True, False, False, True, True, True]
+        by=["organism", "is_high_confidence", "is_good_coverage", "window_count_total", "centrality_score", "evalue", "locus_num"],
+        ascending=[True, False, False ,False, True, True, True]
     )
 
-    # 5) Choose the best one per organism
+    # 6) Choose the best one per organism
     best = sorted_candidates.groupby("organism", as_index=False).head(1).reset_index(drop=True)
 
     return best, sorted_candidates
