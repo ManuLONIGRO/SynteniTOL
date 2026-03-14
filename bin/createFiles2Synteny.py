@@ -202,8 +202,8 @@ def best_hit_per_organism_by_prefix(
     candidates["is_good_coverage"] = candidates["coverage"] >= coverage_threshold
 
     sorted_candidates = candidates.sort_values(
-        by=["organism", "is_high_confidence", "is_good_coverage", "window_count_total", "centrality_score", "evalue", "locus_num"],
-        ascending=[True, False, False ,False, True, True, True]
+        by=["organism", "is_high_confidence", "is_good_coverage", "centrality_score", "window_count_total", "evalue", "locus_num"],
+        ascending=[True, False, False, True, False, True, True]
     )
 
     # 6) Choose the best one per organism
