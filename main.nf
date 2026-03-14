@@ -21,7 +21,8 @@ process efetch_to_tsv {
     output:
     path "protein_to_organism_map.tsv", emit: protein_to_organism_map
     path "assemblies_to_download",      emit: assemblies_to_download
-    path "taxonomy.tsv",                emit: taxonomy_tsv
+    // path "taxonomy.tsv",                emit: taxonomy_tsv
+    path "all_accessions.txt",          emit: all_accessions
     path "no_assembly_list.txt",        emit: no_assembly_list
 
     script:
@@ -33,9 +34,29 @@ process efetch_to_tsv {
         --out_tsv protein_to_organism_map.tsv \
         --out_assemblies assemblies_to_download \
         --out_no_assembly_list no_assembly_list.txt \
-        --out_taxonomy taxonomy.tsv \
+        ${api_opt}
+    cat assemblies_to_download no_assembly_list.txt > all_accessions.txt
+    """
+}
+// --out_taxonomy taxonomy.tsv \
+process get_taxonomy_info {
+    publishDir params.outdir, mode: 'copy'
+    label 'retry_backoff'
+    input:
+        path all_accessions
+        path get_taxonomy_info_script
+    output:
+        path "taxonomy.tsv",   emit: taxonomy_tsv
+    
+    script:
+    def api_opt = params.ncbi_api_key ? "--ncbi_api_key ${params.ncbi_api_key}" : ""
+    """
+    conda run -n syntenitol python3 ${get_taxonomy_info_script} \
+        --input_all_accessions_list ${all_accessions} \
+        --output_taxonomy_tsv taxonomy.tsv \
         ${api_opt}
     """
+
 }
 
 process download_assemblies {
@@ -84,12 +105,19 @@ process download_no_assemblies {
     fi
 
     mkdir -p gbff_no_assemblies
-    printf "%s\n" "${no_assembly_acc}" > no_assembly_id.txt
 
-    conda run -n syntenitol efetch -db nuccore -id ${no_assembly_acc} -format gb > gbff_no_assemblies/${no_assembly_acc}.gbff 
+    conda run -n syntenitol efetch \
+        -db nuccore \
+        -id ${no_assembly_acc} \
+        -format gb \
+        > gbff_no_assemblies/${no_assembly_acc}.gbff
     """
 }
 
+    // mkdir -p gbff_no_assemblies
+    // printf "%s\n" "${no_assembly_acc}" > no_assembly_id.txt
+
+    // conda run -n syntenitol efetch -db nuccore -id ${no_assembly_acc} -format gb > gbff_no_assemblies/${no_assembly_acc}.gbff 
 process rename_gbff_files {
     input:
         tuple path(gbff_dir), path(tsv_file), path(rename_gbff_script)
@@ -153,6 +181,8 @@ process gbff_to_proteomes {
 
 process download_cogs {
     tag { cog }
+    label 'retry_backoff'
+
     input:
     val cog
     output:
@@ -161,6 +191,10 @@ process download_cogs {
 
     script:
     """
+    if [ -n "${params.ncbi_api_key}" ]; then
+        NCBI_API_KEY="${params.ncbi_api_key}"
+    fi
+
     set -euo pipefail
     mkdir -p cogs
 
@@ -435,6 +469,7 @@ workflow {
 
     // stage scripts into tasks
     efetch_script_ch = channel.fromPath('bin/efetch_to_tsv.py')
+    get_taxonomy_info_script_ch = channel.fromPath('bin/get_taxonomy_info.py')
     rename_gbff_script_ch = channel.fromPath('bin/rename_gbff.py')
     gbff2prot_script_ch = channel.fromPath('bin/gbff2prot.py')
     ids_locustag_mapping_script_ch = channel.fromPath('bin/ids_locustag_mapping.py')
@@ -450,6 +485,12 @@ workflow {
     // run efetch_to_tsv process
     //efetch_results = efetch_to_tsv(fasta_ch)
     efetch_results = efetch_to_tsv(fasta_ch,efetch_script_ch)
+    
+    // Get taxonomy info from all accessions
+    taxonomy_info_results = get_taxonomy_info(
+        efetch_results.all_accessions,
+        get_taxonomy_info_script_ch
+    )
 
     // Download assemblies to download in batches of 50 genomes
     efetch_results.assemblies_to_download
@@ -464,17 +505,23 @@ workflow {
 
     download_assemblies_results = download_assemblies(accession_batches)
 
-    // Download assemblies for those without assembly in NCBI in batches of 50 genomes
-    no_assembly_ids = efetch_results.no_assembly_list
-                                    .splitText()
-                                    .map { it.trim() }
-                                    .filter { it }
-                                    .toSortedList()
-                                    .flatten()
-                                    .collate(50)
-                                    .set { no_assembly_batches }
+    // // Download assemblies for those without assembly in NCBI in batches of 50 genomes
+    // no_assembly_ids = efetch_results.no_assembly_list
+    //                                 .splitText()
+    //                                 .map { it.trim() }
+    //                                 .filter { it }
+    //                                 .toSortedList()
+    //                                 .flatten()
+    //                                 .collate(50)
+    //                                 .set { no_assembly_batches }
     
-    no_assemblies_files = download_no_assemblies(no_assembly_batches)
+    // no_assemblies_files = download_no_assemblies(no_assembly_batches)
+    no_assembly_ids = efetch_results.no_assembly_list
+        .splitText()
+        .map { it.trim() }
+        .filter { it }
+
+    no_assemblies_files          = download_no_assemblies(no_assembly_ids)
     separate_no_assemblies_files = no_assemblies_files.flatten()
 
     // Rename no _assemblies_gbff files (this channel may be empty if there are no such genomes)
@@ -577,7 +624,7 @@ workflow {
     
     // get taxonomy itol files
     taxonomy_itol_files_results = taxonomy_itol_files(
-        efetch_results.taxonomy_tsv
+        taxonomy_info_results.taxonomy_tsv
             .combine(df_complete_ch)
             .combine(formatted_fasta_ch)
             .combine(taxonomy_itol_files_script_ch)
