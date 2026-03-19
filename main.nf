@@ -147,7 +147,6 @@ workflow {
 
     no_assemblies_files             = download_no_assemblies(no_assembly_ids)
     separate_no_assemblies_files    = no_assemblies_files.flatten()
-
     
 
     rename_no_assemblies_result     = rename_no_assemblies_files(
@@ -157,8 +156,7 @@ workflow {
                                     )
     
     // If there are no "no_assembly" genomes, provide an explicit empty directory placeholder as a *path value* (not a channel)
-    rename_no_assemblies_or_empty   = rename_no_assemblies_result.ifEmpty { file('empty_no_assemblies') }
-
+    rename_no_assemblies_or_empty   = rename_no_assemblies_result.ifEmpty { file('empty_no_assemblies') 
     
 
     genomes_dir                 = rename_gbff_files(
@@ -174,10 +172,8 @@ workflow {
                                     rename_no_assemblies_or_empty       // path genomes_no_assemblies_dir
                                 )
     
-    
 
     proteomes_dir               = gbff_to_proteomes(all_genomes_dir.combine(gbff2prot_script_ch))
-
 
     
     cogs_ch                     = channel.fromList(cogs_list)
@@ -188,15 +184,13 @@ workflow {
                                     cog_profiles
                                         .combine(proteomes_dir)).hmm_result_file
     separate_hmm_results        = hmm_search_results.flatMap { cog, files -> files.collect { f -> [cog, f] } }
+
     
-
-
     mapping_hmm_results         = ids_locustag_mapping(
-                                    separate_hmm_results
+                                    hmm_search_results
                                         .combine(all_genomes_dir)
                                         .combine(ids_locustag_mapping_script_ch)).mapped_file
     final_mapped                = merge_mappings(mapping_hmm_results.map { cog, f -> f }.collect())
-    
 
 
     map_df                      = build_dataframe(
@@ -205,7 +199,6 @@ workflow {
                                         .combine(separate_hmm_results.map { cog, f -> f }.collect().toList())
                                         .combine(map_genes_to_tsv_script_ch)
                                 ).dataframe_tsv
-    
 
 
     cogs_csv                    = cogs_list.join(',')
@@ -217,12 +210,10 @@ workflow {
                                         .combine(efetch_results.protein_to_organism_map))
 
 
-
     synteny_context_data        = synteny_results.synteny_contexts
     presence_binary_data        = synteny_results.presence_binary_data
     df_complete_ch              = synteny_results.df_complete
     best_goi_tsv_ch             = synteny_results.best_goi_tsv
-
 
 
     // Build iTOL files
@@ -235,7 +226,6 @@ workflow {
                                         .combine(best_goi_tsv_ch)
                                         .combine(syntenyTaxOrg_script_ch)
                                 )
-
 
 
     formatted_fasta_ch          = new_format_headers(
@@ -252,9 +242,6 @@ workflow {
                                         .combine(formatted_fasta_ch)
                                         .combine(taxonomy_itol_files_script_ch)
                                 )
-
-
-
 
     
     maketree_results            = maketree(formatted_fasta_ch)
