@@ -147,6 +147,7 @@ workflow {
 
     no_assemblies_files             = download_no_assemblies(no_assembly_ids)
     separate_no_assemblies_files    = no_assemblies_files.flatten()
+
     
 
     rename_no_assemblies_result     = rename_no_assemblies_files(
@@ -156,7 +157,7 @@ workflow {
                                     )
     
     // If there are no "no_assembly" genomes, provide an explicit empty directory placeholder as a *path value* (not a channel)
-    rename_no_assemblies_or_empty   = rename_no_assemblies_result.ifEmpty { file('empty_no_assemblies') 
+    rename_no_assemblies_or_empty   = rename_no_assemblies_result.ifEmpty { file('empty_no_assemblies') }
     
 
     genomes_dir                 = rename_gbff_files(
