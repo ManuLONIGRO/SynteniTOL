@@ -78,8 +78,8 @@ workflow {
     // Parse and validate COG list safely (params.cogs may be null/empty)
     def cogs_list = (params.cogs ?: '')
         .tokenize(',')
-        .collect { it.trim() }
-        .findAll { it }
+        .collect { v -> v.trim() }
+        .findAll { v -> v }
     if (cogs_list.isEmpty()) { error "Missing --cogs. Use --help for usage." }
 
     // Check the cogs in the list of cogs. If one COG is other thing that COGXXXX, with XXXX from 0001 to 5950, exit with error. Print the error in red.
@@ -104,8 +104,6 @@ workflow {
     map_genes_to_tsv_script_ch          = channel.fromPath('bin/map_genes_to_tsv.py')
     createFiles2Synteny_script_ch       = channel.fromPath('bin/createFiles2Synteny.py')
     syntenyTaxOrg_script_ch             = channel.fromPath('bin/syntenyTaxOrg.py')
-    formatHeaders_script_ch             = channel.fromPath('bin/formatHeaders_inputFASTA.py')
-    mapping_pid_taxid_script_ch         = channel.fromPath('bin/mapping_pid_taxid.py')
     new_formatHeaders_script_ch         = channel.fromPath('bin/new_formatHeaders_inputFASTA.py')
     rename_no_assemblies_script_ch      = channel.fromPath('bin/rename_no_assemblies.py')
     taxonomy_itol_files_script_ch       = channel.fromPath('bin/taxonomy_itol_files.py')
@@ -130,8 +128,8 @@ workflow {
     efetch_results.assemblies_to_download
         .ifEmpty { error "Assemblies file not found." }
         .splitText()
-        .map { it.trim() }
-        .filter { it.trim() }
+        .map { v -> v.trim() }
+        .filter { v -> v.trim() }
         .toSortedList()
         .flatten()
         .collate(50)
@@ -142,8 +140,8 @@ workflow {
     
     no_assembly_ids                 = efetch_results.no_assembly_list
                                         .splitText()
-                                        .map { it.trim() }
-                                        .filter { it }
+                                        .map { v -> v.trim() }
+                                        .filter { v -> v }
 
     no_assemblies_files             = download_no_assemblies(no_assembly_ids)
     separate_no_assemblies_files    = no_assemblies_files.flatten()
@@ -191,13 +189,13 @@ workflow {
                                     hmm_search_results
                                         .combine(all_genomes_dir)
                                         .combine(ids_locustag_mapping_script_ch)).mapped_file
-    final_mapped                = merge_mappings(mapping_hmm_results.map { cog, f -> f }.collect())
+    final_mapped                = merge_mappings(mapping_hmm_results.map { _cog, f -> f }.collect())
 
 
     map_df                      = build_dataframe(
                                     final_mapped
                                         .combine(all_genomes_dir)
-                                        .combine(separate_hmm_results.map { cog, f -> f }.collect().toList())
+                                        .combine(separate_hmm_results.map { _cog, f -> f }.collect().toList())
                                         .combine(map_genes_to_tsv_script_ch)
                                 ).dataframe_tsv
 
@@ -219,7 +217,7 @@ workflow {
 
     // Build iTOL files
     color_group_opt             = params.color_by_group ?: ""
-    itol_outputs                = itol_files(
+    _itol_outputs                = itol_files(
                                     channel.value(cogs_csv)
                                         .combine(channel.value(color_group_opt))
                                         .combine(synteny_context_data)
@@ -237,7 +235,7 @@ workflow {
     
 
 
-    taxonomy_itol_files_results = taxonomy_itol_files(
+    _taxonomy_itol_files_results = taxonomy_itol_files(
                                     taxonomy_info_results.taxonomy_tsv
                                         .combine(df_complete_ch)
                                         .combine(formatted_fasta_ch)
@@ -245,5 +243,5 @@ workflow {
                                 )
 
     
-    maketree_results            = maketree(formatted_fasta_ch)
+    _maketree_results            = maketree(formatted_fasta_ch)
 }
