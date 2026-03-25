@@ -9,6 +9,7 @@ timeline.html
 report.html
 dag.png
 flowchart.dot
+flowchart.png
 trace.txt
 
 # Outputs and large data
@@ -17,6 +18,7 @@ data/
 cogs/
 gbff_assemblies/
 genomes/
+*/
 proteomes/
 mappings/
 *.zip
