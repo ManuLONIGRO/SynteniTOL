@@ -1,6 +1,6 @@
 process hmm_search {
     // publishDir "hmm_search_results_dir", mode: 'copy'
-    tag { "hmm_search ${cog}" }
+    tag "hmm_search ${cog}"
     input:
         tuple val(cog), path(profile), val(proteomes_dir)
     output:

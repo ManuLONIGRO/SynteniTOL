@@ -1,5 +1,5 @@
 process download_cogs {
-    tag { cog }
+    tag cog
     label 'retry_backoff'
 
     input:

@@ -1,5 +1,5 @@
 process hmm_build_cogs {
-    tag { cog }
+    tag cog
     input:
     tuple val(cog), path(cog_file)
     output:
