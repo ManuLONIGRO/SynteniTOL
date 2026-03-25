@@ -168,9 +168,8 @@ workflow {
 
     all_genomes_dir             = merge_genome_directories(
                                     genomes_dir.collect(),              // val genomes_dirs (list of work/.../genomes paths)
-                                    rename_no_assemblies_or_empty       // path genomes_no_assemblies_dir
+                                    rename_no_assemblies_or_empty.collect()       // val genomes_no_assemblies_dir
                                 )
-    
 
     proteomes_dir               = gbff_to_proteomes(all_genomes_dir.combine(gbff2prot_script_ch))
 
