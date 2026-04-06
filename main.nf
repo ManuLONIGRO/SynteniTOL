@@ -10,22 +10,22 @@ nextflow.enable.dsl=2
 include { efetch_to_tsv                 } from './modules/efetch_to_tsv.nf'
 include { get_taxonomy_info             } from './modules/get_taxonomy_info.nf'
 include { download_assemblies           } from './modules/download_assemblies.nf'
-include { download_no_assemblies        } from './modules/download_no_assemblies.nf'
+include { fetch_genbank_records         } from './modules/fetch_genbank_records.nf'
 include { rename_gbff_files             } from './modules/rename_gbff_files.nf'
-include { rename_no_assemblies_files    } from './modules/rename_no_assemblies_files.nf'
+include { rename_genbank_files          } from './modules/rename_genbank_files.nf'
 include { merge_genome_directories      } from './modules/merge_genome_directories.nf'
-include { gbff_to_proteomes             } from './modules/gbff_to_proteomes.nf'
+include { extract_proteomes             } from './modules/extract_proteomes.nf'
 include { download_cogs                 } from './modules/download_cogs.nf'
 include { hmm_build_cogs                } from './modules/hmm_build_cogs.nf'
 include { hmm_search                    } from './modules/hmm_search.nf'
-include { ids_locustag_mapping          } from './modules/ids_locustag_mapping.nf'
+include { map_ids_to_locustag           } from './modules/map_ids_to_locustag.nf'
 include { merge_mappings                } from './modules/merge_mappings.nf'
 include { build_dataframe               } from './modules/build_dataframe.nf'
-include { files_to_synteny              } from './modules/files_to_synteny.nf'
-include { itol_files                    } from './modules/itol_files.nf'
-include { new_format_headers            } from './modules/new_format_headers.nf'
+include { generate_synteny_data         } from './modules/generate_synteny_data.nf'
+include { generate_itol_files           } from './modules/generate_itol_files.nf'
+include { reformat_fasta_headers        } from './modules/reformat_fasta_headers.nf'
 include { taxonomy_itol_files           } from './modules/taxonomy_itol_files.nf'
-include { maketree                      } from './modules/maketree.nf'
+include { make_tree                     } from './modules/make_tree.nf'
 
 
 /*
@@ -143,12 +143,12 @@ workflow {
                                         .map { v -> v.trim() }
                                         .filter { v -> v }
 
-    no_assemblies_files             = download_no_assemblies(no_assembly_ids)
+    no_assemblies_files             = fetch_genbank_records(no_assembly_ids)
     separate_no_assemblies_files    = no_assemblies_files.flatten()
 
     
 
-    rename_no_assemblies_result     = rename_no_assemblies_files(
+    rename_no_assemblies_result     = rename_genbank_files(
                                         separate_no_assemblies_files
                                             .combine(efetch_results.protein_to_organism_map)
                                             .combine(rename_no_assemblies_script_ch)
@@ -171,7 +171,7 @@ workflow {
                                     rename_no_assemblies_or_empty.collect()       // val genomes_no_assemblies_dir
                                 )
 
-    proteomes_dir               = gbff_to_proteomes(all_genomes_dir.combine(gbff2prot_script_ch))
+    proteomes_dir               = extract_proteomes(all_genomes_dir.combine(gbff2prot_script_ch))
 
     
     cogs_ch                     = channel.fromList(cogs_list)
@@ -184,7 +184,7 @@ workflow {
     separate_hmm_results        = hmm_search_results.flatMap { cog, files -> files.collect { f -> [cog, f] } }
 
     
-    mapping_hmm_results         = ids_locustag_mapping(
+    mapping_hmm_results         = map_ids_to_locustag(
                                     hmm_search_results
                                         .combine(all_genomes_dir)
                                         .combine(ids_locustag_mapping_script_ch)).mapped_file
@@ -200,7 +200,7 @@ workflow {
 
 
     cogs_csv                    = cogs_list.join(',')
-    synteny_results             = files_to_synteny(
+    synteny_results             = generate_synteny_data(
                                     channel.value(cogs_csv)
                                         .combine(all_genomes_dir)
                                         .combine(map_df)
@@ -216,7 +216,7 @@ workflow {
 
     // Build iTOL files
     color_group_opt             = params.color_by_group ?: ""
-    _itol_outputs                = itol_files(
+    _itol_outputs                = generate_itol_files(
                                     channel.value(cogs_csv)
                                         .combine(channel.value(color_group_opt))
                                         .combine(synteny_context_data)
@@ -226,7 +226,7 @@ workflow {
                                 )
 
 
-    formatted_fasta_ch          = new_format_headers(
+    formatted_fasta_ch          = reformat_fasta_headers(
                                     fasta_ch
                                         .combine(all_genomes_dir)
                                         .combine(new_formatHeaders_script_ch)
@@ -242,5 +242,5 @@ workflow {
                                 )
 
     
-    _maketree_results            = maketree(formatted_fasta_ch)
+    _maketree_results            = make_tree(formatted_fasta_ch)
 }
