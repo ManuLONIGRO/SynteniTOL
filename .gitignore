@@ -1,5 +1,6 @@
 # Nextflow runtime
 .work/
+work/*
 work/
 .nextflow/
 .nextflow.log*
@@ -18,7 +19,6 @@ data/
 cogs/
 gbff_assemblies/
 genomes/
-*/
 proteomes/
 mappings/
 *.zip
@@ -52,3 +52,7 @@ Thumbs.db
 #backups
 backup*
 */backup_*
+
+#opencode
+.opencode/
+AGENTS.md
