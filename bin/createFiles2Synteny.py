@@ -39,6 +39,15 @@ df = pd.read_csv(args.dataframe, sep="\t", dtype={'protein_id': str})
 # Filter by coverage
 df_filtered = df[df["coverage"] > 0.60]
 
+# Load protein_to_organism_map.tsv early and normalize key column
+map_tsv = args.protein_to_organism_map_tsv
+df_organism_map = pd.read_csv(map_tsv, sep="\t", dtype={"protein": str, "protein_id": str}).rename(columns={'protein': 'protein_id'})
+if "protein_id" not in df_organism_map.columns:
+    raise SystemExit("protein_to_organism_map.tsv must contain 'protein' or 'protein_id' column")
+df_organism_map["protein_id"] = df_organism_map["protein_id"].astype(str).str.strip()
+protein_list = df_organism_map["protein_id"].dropna().unique().tolist()
+protein_set = set(protein_list)
+
 # Build lookups
 locus_to_gene: Dict[str, str] = dict(zip(df_filtered["locus_tag"], df_filtered["gene"]))
 #print(locus_to_gene)
@@ -239,7 +248,7 @@ df_cog = df_cog.sort_values(by="evalue", ascending=True)
 df_best_per_org = df_cog.drop_duplicates(subset=["organism"], keep="first")
 
 # These are the protin ids and locus_tags of the best result
-#protein_interest_list = df_best_per_org["protein_id"].tolist() 03/0
+#protein_interest_list = df_best_per_org["protein_id"].tolist() #probando 13/04/2026
 protein_interest_list = best_goi_dataframe["protein_id"].tolist()
 protein_interest_set = set(protein_interest_list)
 #locus_tag_goi = df_best_per_org["locus_tag"].tolist()
@@ -257,7 +266,7 @@ locus_tag_goi = best_goi_dataframe["locus_tag"].tolist()
 #------------------------------------------------------------------------------------
 #protein_interest_list = df_filtered[df_filtered["gene"] == cog_of_interest]["protein_id"].unique().tolist()
 #protein_interest_set = set([pid for pid in protein_interest_list])
-print(f"Proteins of interest for {cog_of_interest}: {protein_interest_set}")
+print(f"Proteins to recover from mapping file: {len(protein_set)}")
 #this works
 #locus_tags_cog_list = df_filtered[["gene"] == cog_of_interest]["locus_tag"].unique().tolist() #works
 locus_tags_cog_list = df_filtered[df_filtered["gene"] == cog_of_interest]["locus_tag"].unique().tolist()
@@ -269,9 +278,8 @@ locus_goi_set = locus_tags_cog_list #works
 
 # Rows for the new tsv with species info
 rows_to_tsv = []
-# Load protein_to_organism_map.tsv to build dict protein: organism,isolate
 
-def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: set):
+def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: set, protein_set: set):
 
     records = list(SeqIO.parse(input_file, "genbank"))
     if not records:
@@ -316,8 +324,8 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
                 #if locus_tag in locus_goi_set:
                 if locus_tag in locus_tag_goi: #new line
                     contains_goi = True
-                if local_protein_id in protein_interest_set:
-                    print(f"Found local protein id {local_protein_id} in protein_interest_set")
+                if local_protein_id in protein_set:
+                    print(f"Found local protein id {local_protein_id} in protein_set")
                     rows_to_tsv.append({
                         "protein_id": local_protein_id,
                         "local_taxid": local_taxid,
@@ -354,7 +362,7 @@ files = [os.path.join(args.input_dir, f) for f in os.listdir(args.input_dir) if 
 
 genomes_data_binary_raw = []
 for gbff in files:
-    result = process_gbff(gbff, locus_to_gene, locus_goi_set)
+    result = process_gbff(gbff, locus_to_gene, locus_goi_set, protein_set)
     if result is not None:
         genomes_data_binary_raw.append(result)
 
@@ -479,11 +487,8 @@ with open(oriented_out, "r") as infile, open(sector_out, "w") as outfile:
         genes_oriented = context_goi(genes)
         outfile.write(f"{(header, genome_length, genes_oriented)}\n")
 
-# Load protein_to_organism_map.tsv
-map_tsv = args.protein_to_organism_map_tsv
-df_organism_map = pd.read_csv(map_tsv, sep="\t").rename(columns={'protein': 'protein_id'})
-
 # Create the new tsv with species info
+print(rows_to_tsv)
 df_new = pd.DataFrame(rows_to_tsv)
 df_final = df_organism_map.merge(df_new, on="protein_id", how="left")
 out_tsv = args.out_tsv
