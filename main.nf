@@ -73,6 +73,11 @@ workflow {
 
     // Validate mandatory parameters
     if (!params.inputFASTA)   {error "Missing --inputFASTA. Use --help for usage."}
+    def inputFile = file(params.inputFASTA)
+    if (!inputFile.exists()) {
+        error "The input file ${params.inputFASTA} doesn't exist."
+    }
+
     if (!params.ncbi_api_key) {log.warn "${YELLOW}Warning: No NCBI API key provided. You may encounter rate limits when fetching data from NCBI.${RESET}"}
 
     // Parse and validate COG list safely (params.cogs may be null/empty)
