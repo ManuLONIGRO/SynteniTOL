@@ -1,5 +1,6 @@
 process download_cogs {
     tag { cog }
+    maxForks = 2
     label 'retry_backoff'
 
     input:
