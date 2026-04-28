@@ -137,7 +137,7 @@ workflow {
 
     download_assemblies_results     = download_assemblies(accession_batches)
 
-    
+    /*
     no_assembly_ids                 = efetch_results.no_assembly_list
                                         .splitText()
                                         .map { v -> v.trim() }
@@ -156,8 +156,9 @@ workflow {
     
     // If there are no "no_assembly" genomes, provide an explicit empty directory placeholder as a *path value* (not a channel)
     rename_no_assemblies_or_empty   = rename_no_assemblies_result.ifEmpty { file('empty_no_assemblies') }
+    */
+    rename_no_assemblies_or_empty = file('empty_no_assemblies')
     
-
     genomes_dir                 = rename_gbff_files(
                                     download_assemblies_results
                                         .combine(efetch_results.protein_to_organism_map)
