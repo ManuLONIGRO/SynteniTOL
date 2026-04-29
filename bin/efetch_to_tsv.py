@@ -68,8 +68,8 @@ for line in result.splitlines():
         #strand=parts[5],
         "protein": parts[6] or "NA",
         #protein_name=parts[7],
-        "organism": parts[8].replace(";","").replace("(","_").replace(")","_") or "NA",
-        "strain": parts[9].replace(";","").replace("(","_").replace(")","_") or "NA",
+        "organism": parts[8].replace(" ", "_").replace(";","_").replace("=","_").replace("(","_").replace(")","_") or "NA",
+        "strain": parts[9].replace(" ", "_").replace(";","_").replace("=","_").replace("(","_").replace(")","_") or "NA",
         "assembly": parts[10] or "NA",
     }
     
@@ -114,7 +114,7 @@ if assemblies:
     for line2 in result2.splitlines():
         parts2 = line2.strip().split("\t")
         acc = parts2[0] if len(parts2) > 0 else "NA"
-        isolate = parts2[1].replace(" ", "_").replace("(","_").replace(")","_") if len(parts2) > 1 else "NA"
+        isolate = parts2[1].replace(" ", "_").replace(";","_").replace("=","_").replace("(","_").replace(")","_") if len(parts2) > 1 else "NA"
         assembly_to_isolate[acc] = isolate
 
 # Add the isolate to each row

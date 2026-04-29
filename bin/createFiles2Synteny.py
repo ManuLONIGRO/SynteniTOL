@@ -303,9 +303,9 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
         for feature in record.features:
             if feature.type == "source":
                 db_xrefs = feature.qualifiers.get("db_xref", [])
-                local_isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_").replace(";","").replace(":","_").replace("(","_").replace(")","_")
-                local_strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("(","_").replace(")","_")
-                local_species = feature.qualifiers.get("organism", ["NA"])[0].replace(" ", "_").replace(";","").replace(":","_").replace("(","_").replace(")","_")
+                local_isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
+                local_strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
+                local_species = feature.qualifiers.get("organism", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
                 for xref in db_xrefs:
                     if xref.startswith("taxon:"):
                         local_taxid = xref.split(":")[1]

@@ -32,8 +32,8 @@ protein_id_to_info = {}
 for _, row in df.iterrows():
     print(row)
     taxid = row["local_taxid"]
-    species_name = row["local_species"].replace(" ", "_")
-    isolate = row["local_isolate"].replace(" ", "_").replace(";","")
+    species_name = row["local_species"].replace(" ", "_").replace("=","_")
+    isolate = row["local_isolate"].replace(" ", "_").replace(";","_").replace("=","_")
     protein_id = row["protein_id"]
     protein_id_to_info[protein_id] = (taxid, species_name, isolate)
     #protein_id_to_info[protein_id] = (taxid)
