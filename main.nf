@@ -80,6 +80,9 @@ workflow {
 
     if (!params.ncbi_api_key) {log.warn "${YELLOW}Warning: No NCBI API key provided. You may encounter rate limits when fetching data from NCBI.${RESET}"}
 
+    // Get the name of the input file without the extension for the tree name file.
+    def base_name = java.nio.file.Paths.get(params.inputFASTA.toString()).fileName.toString().replaceFirst(/\.[^.]+$/, '')
+
     // Parse and validate COG list safely (params.cogs may be null/empty)
     def cogs_list = (params.cogs ?: '')
         .tokenize(',')
@@ -248,5 +251,5 @@ workflow {
                                 )
 
     
-    _maketree_results            = make_tree(formatted_fasta_ch)
+    _maketree_results            = make_tree(formatted_fasta_ch, base_name)
 }
