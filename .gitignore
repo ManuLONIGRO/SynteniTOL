@@ -14,7 +14,7 @@ flowchart.png
 trace.txt
 
 # Outputs and large data
-results/
+results*/
 data/
 cogs/
 gbff_assemblies/
@@ -56,3 +56,4 @@ backup*
 #opencode
 .opencode/
 AGENTS.md
+docs/

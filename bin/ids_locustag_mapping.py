@@ -26,12 +26,14 @@ parser.add_argument("--genomes_dir", required=True, help="Path to the directory 
 parser.add_argument("--result_file", required=True, help="Path to a single .result file")
 parser.add_argument("--output_file", required=True, help="Path to the output mapping file (append mode)")
 parser.add_argument("--no_mapped_file", required=True, help="Path to the output file for unmapped IDs (append mode)")
+parser.add_argument("--evalue", type=float, default=1e-5, help="E-value threshold for filtering")
 args = parser.parse_args()
 
 genomes_dir = args.genomes_dir
 result_file = args.result_file
 output_file = args.output_file
 no_mapeadas_file = args.no_mapped_file
+evalue_limit = args.evalue
 
 def procesar_archivo(result_path):
     try:
@@ -66,7 +68,6 @@ def procesar_archivo(result_path):
 
                 # obtener todos los hits que tengan un evalue <= evalue_limit
                 evalue = float(parts[6])
-                evalue_limit = 1e-5
                 if evalue > evalue_limit:
                     continue
 

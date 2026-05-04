@@ -3,7 +3,7 @@ process generate_synteny_data {
     publishDir params.outdir, mode: 'copy', pattern: "candidates.tsv"
 	publishDir params.outdir, mode: 'copy', pattern: "best_goi.tsv"
     input:
-		tuple val(cogs_csv), path(genomes_dir), path(dataframe), path(createFiles2Synteny_script), path(protein_to_organism_map)
+		tuple val(cogs_csv), path(genomes_dir), path(dataframe), path(createFiles2Synteny_script), path(protein_to_organism_map), val(evalue)
 	output:
 		path "*_presence_binary_data_*", optional: true, emit: presence_binary_data
 		path "*_genomic_context_data_*_oriented", optional: true
@@ -17,6 +17,7 @@ process generate_synteny_data {
 	out_prefix="synteny"
 	
     conda run -n syntenitol python3 ${createFiles2Synteny_script} \
+	  --evalue ${evalue} \
 	  --input_dir ${genomes_dir} \
 	  --cogs ${cogs_csv} \
 	  --dataframe ${dataframe} \

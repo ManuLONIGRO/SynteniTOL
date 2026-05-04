@@ -59,6 +59,7 @@ workflow {
         --inputFASTA       Input FASTA file with sequences from blastp results (mandatory)
         --cogs             Comma-separated list of COGs (e.g., COG1152,COG1795) (mandatory)
         --color_by_group   Optional parameter to color by group in iTOL files. (e.g. COG1229-COG1029,COG2218,COG2037 COG1229 and COG1029 will be in the same color) 
+        --evalue           E-value threshold used in search/filtering steps (default: 1e-5)
         --outdir           Output directory (default: results/run_<timestamp>)
         --ncbi_api_key     NCBI API key to increase rate limits (optional but recommended)
         --help             Show this help message and exit
@@ -83,6 +84,8 @@ workflow {
     // Get the name of the input file without the extension for the tree name file.
     def base_name = java.nio.file.Paths.get(params.inputFASTA.toString()).fileName.toString().replaceFirst(/\.[^.]+$/, '')
 
+    // Define evalue parameter channel
+    def evalue = channel.value(params.evalue)
     // Parse and validate COG list safely (params.cogs may be null/empty)
     def cogs_list = (params.cogs ?: '')
         .tokenize(',')
@@ -189,14 +192,16 @@ workflow {
     cog_profiles                = hmm_build_cogs(cog_files_ch).profile_file
     hmm_search_results          = hmm_search(
                                     cog_profiles
-                                        .combine(proteomes_dir)).hmm_result_file
+                                        .combine(proteomes_dir)
+                                        .combine(evalue)).hmm_result_file
     separate_hmm_results        = hmm_search_results.flatMap { cog, files -> files.collect { f -> [cog, f] } }
 
     
     mapping_hmm_results         = map_ids_to_locustag(
                                     hmm_search_results
                                         .combine(all_genomes_dir)
-                                        .combine(ids_locustag_mapping_script_ch)).mapped_file
+                                        .combine(ids_locustag_mapping_script_ch)
+                                        .combine(evalue)).mapped_file
     final_mapped                = merge_mappings(mapping_hmm_results.map { _cog, f -> f }.collect())
 
 
@@ -214,7 +219,8 @@ workflow {
                                         .combine(all_genomes_dir)
                                         .combine(map_df)
                                         .combine(createFiles2Synteny_script_ch)
-                                        .combine(efetch_results.protein_to_organism_map))
+                                        .combine(efetch_results.protein_to_organism_map)
+                                        .combine(evalue))
 
 
     synteny_context_data        = synteny_results.synteny_contexts
