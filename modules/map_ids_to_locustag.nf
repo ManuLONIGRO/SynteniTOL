@@ -16,6 +16,7 @@ process map_ids_to_locustag {
       conda run -n syntenitol python3 ${ids_locustag_mapping_script} \
         --genomes_dir ${genomes_dir} \
         --result_file \${hmm_result_file} \
+        --gene_name ${cog} \
         --output_file mappings/\${base}.map \
         --no_mapped_file mappings/\${base}.no_map \
         --evalue ${evalue}

@@ -53,11 +53,13 @@ workflow {
         
         Usage: nextflow run main.nf --inputFASTA <input_fasta_file> --cogs <cog_list> [options]
 
-        ${YELLOW}IMPORTANT:${RESET} the first cog in the list will be used as reference for synteny plots.
+        ${YELLOW}IMPORTANT:${RESET} the first profile in the combined list (COGs + custom profiles) is used as reference for synteny plots.
 
         Options:
         --inputFASTA       Input FASTA file with sequences from blastp results (mandatory)
         --cogs             Comma-separated list of COGs (e.g., COG1152,COG1795) (mandatory)
+        --custom_hmm_profiles Optional comma-separated list of custom HMM profile paths to include (e.g., profile_x.hmm,profile_y.hmm)
+        --query_profile    Optional profile label to use as reference for inputFASTA (must exist in COGs/custom profiles)
         --color_by_group   Optional parameter to color by group in iTOL files. (e.g. COG1229-COG1029,COG2218,COG2037 COG1229 and COG1029 will be in the same color) 
         --evalue           E-value threshold used in search/filtering steps (default: 1e-5)
         --outdir           Output directory (default: results/run_<timestamp>)
@@ -93,9 +95,24 @@ workflow {
         .findAll { v -> v }
     if (cogs_list.isEmpty()) { error "Missing --cogs. Use --help for usage." }
 
+    // Optional custom HMM profiles provided by user (comma-separated paths)
+    def custom_profiles_list = (params.custom_hmm_profiles ?: '')
+        .tokenize(',')
+        .collect { v -> v.trim() }
+        .findAll { v -> v }
+    def custom_profile_tuples = custom_profiles_list.collect { profilePath ->
+        def profileFile = file(profilePath)
+        if (!profileFile.exists()) {
+            error "Custom HMM profile not found: ${profilePath}"
+        }
+        def profileName = java.nio.file.Paths.get(profilePath).fileName.toString().replaceFirst(/\.hmm$/, '').replaceFirst(/^profile_/, '')
+        [profileName, profileFile]
+    }
+    def custom_profile_names = custom_profile_tuples.collect { entry -> entry[0] }
+
     // Check the cogs in the list of cogs. If one COG is other thing that COGXXXX, with XXXX from 0001 to 5950, exit with error. Print the error in red.
     def cog_pattern = ~/^COG(0[0-9]{3}|[1-5][0-9]{3}|5950)$/
-    def invalid_cogs = cogs_list.findAll { !(it ==~ cog_pattern) }
+    def invalid_cogs = cogs_list.findAll { cog -> !(cog ==~ cog_pattern) }
     if (invalid_cogs) {
         error "${RED}Invalid COG identifiers found: ${invalid_cogs.join(', ')}. COGs should be in the format COGXXXX, where XXXX is a number from 0001 to 5950.${RESET}"
     }
@@ -190,8 +207,10 @@ workflow {
     download_cogs_results       = download_cogs(cogs_ch)
     cog_files_ch                = download_cogs_results.cog_file
     cog_profiles                = hmm_build_cogs(cog_files_ch).profile_file
+    custom_profiles_ch          = custom_profile_tuples ? channel.fromList(custom_profile_tuples) : channel.empty()
+    all_profiles_ch             = cog_profiles.mix(custom_profiles_ch)
     hmm_search_results          = hmm_search(
-                                    cog_profiles
+                                    all_profiles_ch
                                         .combine(proteomes_dir)
                                         .combine(evalue)).hmm_result_file
     separate_hmm_results        = hmm_search_results.flatMap { cog, files -> files.collect { f -> [cog, f] } }
@@ -213,7 +232,19 @@ workflow {
                                 ).dataframe_tsv
 
 
-    cogs_csv                    = cogs_list.join(',')
+    all_gene_labels             = cogs_list + custom_profile_names
+    def query_profile = params.query_profile?.toString()?.trim()
+    if (query_profile) {
+        if (!(query_profile in all_gene_labels)) {
+            error "Invalid --query_profile '${query_profile}'. It must match one of: ${all_gene_labels.join(', ')}"
+        }
+    } else if (custom_profile_names) {
+        query_profile = custom_profile_names[0]
+    } else {
+        query_profile = cogs_list[0]
+    }
+    ordered_gene_labels         = [query_profile] + all_gene_labels.findAll { gene -> gene != query_profile }
+    cogs_csv                    = ordered_gene_labels.join(',')
     synteny_results             = generate_synteny_data(
                                     channel.value(cogs_csv)
                                         .combine(all_genomes_dir)

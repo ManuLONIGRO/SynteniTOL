@@ -9,7 +9,7 @@ process hmm_search {
     
     script:
     """
-    profile_name=\$(basename "${profile}" .hmm | sed 's/profile_//')
+    profile_name="${cog}"
     
     for proteome in ${proteomes_dir}/*.prot; do
         proteome_name=\$(basename "\$proteome" .prot)

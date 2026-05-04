@@ -24,6 +24,7 @@ import sys
 parser = argparse.ArgumentParser()
 parser.add_argument("--genomes_dir", required=True, help="Path to the directory containing .gbff files")
 parser.add_argument("--result_file", required=True, help="Path to a single .result file")
+parser.add_argument("--gene_name", required=False, help="Gene/profile label to annotate mapping rows")
 parser.add_argument("--output_file", required=True, help="Path to the output mapping file (append mode)")
 parser.add_argument("--no_mapped_file", required=True, help="Path to the output file for unmapped IDs (append mode)")
 parser.add_argument("--evalue", type=float, default=1e-5, help="E-value threshold for filtering")
@@ -143,7 +144,13 @@ if __name__ == "__main__":
         # nothing to write (no hits or errors logged to stderr)
         sys.exit(0)
 
-    cog = result_file.split("_")[1].split(".")[0]  # example_COG.result
+    # Prefer explicit label from workflow; fallback keeps backward compatibility
+    cog = args.gene_name
+    if not cog:
+        try:
+            cog = result_file.split("_")[1].split(".")[0]
+        except Exception:
+            cog = "unknown"
 
     with open(output_file, "a") as out_map, open(no_mapeadas_file, "a") as out_no_map:
         for item in resultado:
