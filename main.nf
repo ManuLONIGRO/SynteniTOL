@@ -221,8 +221,10 @@ workflow {
                                         .combine(all_genomes_dir)
                                         .combine(ids_locustag_mapping_script_ch)
                                         .combine(evalue)).mapped_file
-    final_mapped                = merge_mappings(mapping_hmm_results.map { _cog, f -> f }.collect())
-
+    mapping_files               = mapping_hmm_results.map { _cog, f -> f }
+    mapping_batches             = mapping_files.collate(1000)
+    partial_mapped              = merge_mappings(mapping_batches)
+    final_mapped                = partial_mapped.collect()
 
     map_df                      = build_dataframe(
                                     final_mapped

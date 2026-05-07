@@ -7,6 +7,10 @@ process merge_mappings {
 
     script:
     """
-    cat ${map_files} | grep -v "no hits" > all_mappings.map 
+    : > all_mappings.map
+
+    for f in ${map_files}; do
+        grep -h -v "no hits" "\$f" >> all_mappings.map
+    done
     """
 }
