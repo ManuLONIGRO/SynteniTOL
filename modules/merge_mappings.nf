@@ -1,16 +1,18 @@
 process merge_mappings {
     publishDir params.outdir, mode: 'copy'
     input:
-    path map_files
+    path map_files, arity: '1..*'
     output:
-    path "all_mappings.map"
+    path "all_mappings_${task.index}.map"
 
     script:
     """
-    : > all_mappings.map
+    out_file="all_mappings_${task.index}.map"
+    : > "\$out_file"
 
     for f in ${map_files}; do
-        grep -h -v "no hits" "\$f" >> all_mappings.map
+        # grep returns 1 when no lines match (e.g. file contains only "no hits")
+        grep -h -v "no hits" "\$f" >> "\$out_file" || true
     done
     """
 }

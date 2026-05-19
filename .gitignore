@@ -14,6 +14,8 @@ flowchart.png
 trace.txt
 
 # Outputs and large data
+custom_hmm_profiles/
+fwda_full_tree/
 results*/
 data/
 cogs/

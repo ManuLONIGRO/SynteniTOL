@@ -221,16 +221,18 @@ workflow {
                                         .combine(all_genomes_dir)
                                         .combine(ids_locustag_mapping_script_ch)
                                         .combine(evalue)).mapped_file
-    mapping_files               = mapping_hmm_results.map { _cog, f -> f }
+    mapping_files               = mapping_hmm_results
+                                    .map { _cog, files -> files }
+                                    .flatten()
     mapping_batches             = mapping_files.collate(1000)
     partial_mapped              = merge_mappings(mapping_batches)
-    final_mapped                = partial_mapped.collect()
-
+    final_mapped                = partial_mapped.collectFile(name: 'all_mappings.map', newLine: true)
+    hmm_results_files_ch        = separate_hmm_results.map { _cog, f -> f }.collect()
     map_df                      = build_dataframe(
-                                    final_mapped
-                                        .combine(all_genomes_dir)
-                                        .combine(separate_hmm_results.map { _cog, f -> f }.collect().toList())
-                                        .combine(map_genes_to_tsv_script_ch)
+                                    final_mapped,
+                                    all_genomes_dir,
+                                    hmm_results_files_ch,
+                                    map_genes_to_tsv_script_ch
                                 ).dataframe_tsv
 
 

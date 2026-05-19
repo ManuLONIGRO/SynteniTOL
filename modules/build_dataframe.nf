@@ -1,7 +1,10 @@
 process build_dataframe {
     publishDir params.outdir, mode: 'copy'
     input:
-    tuple path(mappings_file), path(genomes_dir), path(hmm_results_files), path(map_genes_to_tsv_script)
+    path mappings_file
+    path genomes_dir
+    path hmm_results_files, arity: '1..*'
+    path map_genes_to_tsv_script
     output:
     path "dataframe.tsv", emit: dataframe_tsv
 
