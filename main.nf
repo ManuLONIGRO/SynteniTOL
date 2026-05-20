@@ -35,6 +35,27 @@ include { make_tree                     } from './modules/make_tree.nf'
 */
 
 workflow {
+    // Fail fast on unknown CLI parameters to catch typos.
+    def allowedParams = [
+        'help',
+        'inputFASTA',
+        'cogs',
+        'custom_hmm_profiles',
+        'query_profile',
+        'ncbi_api_key',
+        'color_by_group',
+        'base_name',
+        'evalue',
+        'run_id',
+        'outdir'
+    ] as Set
+    def unknownParams = params.keySet().findAll { key -> !(key in allowedParams) }.sort()
+    if (unknownParams) {
+        def unknownFlags = unknownParams.collect { key -> "--${key}" }.join(', ')
+        def allowedFlags = allowedParams.toList().sort().collect { key -> "--${key}" }.join(', ')
+        error "Unknown parameter(s): ${unknownFlags}. Allowed parameters are: ${allowedFlags}"
+    }
+
     // Create a command.txt with workflow.commandline in the output directory for reproducibility
     def runDir = file(params.outdir ?: "results/run_${params.run_id}")
     runDir.mkdirs()
