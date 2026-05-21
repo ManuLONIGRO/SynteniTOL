@@ -44,6 +44,7 @@ workflow {
         'query_profile',
         'ncbi_api_key',
         'color_by_group',
+        'no_taxonomy',
         'base_name',
         'evalue',
         'run_id',
@@ -74,7 +75,7 @@ workflow {
         
         Usage: nextflow run main.nf --inputFASTA <input_fasta_file> --cogs <cog_list> [options]
 
-        ${YELLOW}IMPORTANT:${RESET} the first profile in the combined list (COGs + custom profiles) is used as reference for synteny plots.
+        ${YELLOW}IMPORTANT:${RESET} the first COG in --cogs is used as reference for synteny plots (override with --query_profile).
 
         Options:
         --inputFASTA       Input FASTA file with sequences from blastp results (mandatory)
@@ -82,6 +83,7 @@ workflow {
         --custom_hmm_profiles Optional comma-separated list of custom HMM profile paths to include (e.g., profile_x.hmm,profile_y.hmm)
         --query_profile    Optional profile label to use as reference for inputFASTA (must exist in COGs/custom profiles)
         --color_by_group   Optional parameter to color by group in iTOL files. (e.g. COG1229-COG1029,COG2218,COG2037 COG1229 and COG1029 will be in the same color) 
+        --no_taxonomy      Skip NCBI taxonomy lookup and taxonomic iTOL files (domain/phylum/class)
         --evalue           E-value threshold used in search/filtering steps (default: 1e-5)
         --outdir           Output directory (default: results/run_<timestamp>)
         --ncbi_api_key     NCBI API key to increase rate limits (optional but recommended)
@@ -166,12 +168,15 @@ workflow {
                                             fasta_ch,
                                             efetch_script_ch
                                             )
-    
-    
-    taxonomy_info_results               = get_taxonomy_info(
+
+    if (!params.no_taxonomy) {
+        taxonomy_info_results           = get_taxonomy_info(
                                             efetch_results.all_accessions,
                                             get_taxonomy_info_script_ch
                                         )
+    } else {
+        log.info "${YELLOW}Skipping taxonomy steps (get_taxonomy_info, taxonomy_itol_files) due to --no_taxonomy${RESET}"
+    }
 
     // Download assemblies to download in batches of 50 genomes to not overload NCBI servers
     efetch_results.assemblies_to_download
@@ -263,8 +268,6 @@ workflow {
         if (!(query_profile in all_gene_labels)) {
             error "Invalid --query_profile '${query_profile}'. It must match one of: ${all_gene_labels.join(', ')}"
         }
-    } else if (custom_profile_names) {
-        query_profile = custom_profile_names[0]
     } else {
         query_profile = cogs_list[0]
     }
@@ -305,13 +308,14 @@ workflow {
     
 
 
-    _taxonomy_itol_files_results = taxonomy_itol_files(
-                                    taxonomy_info_results.taxonomy_tsv
-                                        .combine(df_complete_ch)
-                                        .combine(formatted_fasta_ch)
-                                        .combine(taxonomy_itol_files_script_ch)
-                                )
+    if (!params.no_taxonomy) {
+        _taxonomy_itol_files_results = taxonomy_itol_files(
+                                        taxonomy_info_results.taxonomy_tsv
+                                            .combine(df_complete_ch)
+                                            .combine(formatted_fasta_ch)
+                                            .combine(taxonomy_itol_files_script_ch)
+                                    )
+    }
 
-    
     _maketree_results            = make_tree(formatted_fasta_ch, base_name)
 }

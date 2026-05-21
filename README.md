@@ -106,6 +106,7 @@ nextflow run main.nf [OPTIONS]
 |--------------------|---------------------------------------------------------------------------|
 | `--ncbi_api_key`   | NCBI API key to increase rate limits (recommended for large queries)      |
 | `--color_by_group` | Group COGs for coloring in iTOL (format: `COG1229-COG1029,COG2218`)       |
+| `--no_taxonomy`    | Skip NCBI taxonomy lookup and taxonomic iTOL layers (domain/phylum/class) |
 | `--outdir`         | Output directory for results                                              |
 | `--help`           | Display help message                                                      |
 
