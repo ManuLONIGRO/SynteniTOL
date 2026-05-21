@@ -10,7 +10,7 @@ UPDATED for NEXTFLOW 22/10/2026
 @author: mlonigro
 """
 
-import csv
+import colorsys
 from collections import defaultdict
 import pandas as pd
 import argparse
@@ -112,79 +112,32 @@ for species, phylum in dic_phylum.items():
 
 
 unique_values_phylum = list(set(dic_phylum.values()))
-#---------------------------------------------------------------------------------------
-#phylum COLORS
-import random
 
-# Function to generate a random color in hexadecimal format
-def random_color():
-    return "#{:06x}".format(random.randint(0, 0xFFFFFF))
 
-# Generate a color for each element in the list
-colors = [random_color() for _ in unique_values_phylum]
-        
-# Combine elements with their corresponding colors
-elements_with_colors = list(zip(unique_values_phylum, colors))
+def evenly_spaced_colors(n):
+    """High-contrast rainbow palette (same as bin/syntenyTaxOrg.py for COGs)."""
+    colors = []
+    for i in range(n):
+        h = (i / max(1, n)) % 1.0
+        s = 0.95
+        l = 0.55
+        r, g, b = colorsys.hls_to_rgb(h, l, s)
+        colors.append(f"#{int(r * 255):02X}{int(g * 255):02X}{int(b * 255):02X}")
+    return colors
 
-list_colors_phylum = []
 
-# Print the list of elements with their colors
-for element, color in elements_with_colors:
-    list_colors_phylum.append(color)
-#--------------------------------------------------------------------------------------------
-# domain COLORS
+def labels_and_colors(unique_values):
+    labels = sorted(unique_values)
+    colors = evenly_spaced_colors(len(labels))
+    return labels, colors, dict(zip(labels, colors))
 
-# Function to generate a random color in hexadecimal format
-def random_color():
-    return "#{:06x}".format(random.randint(0, 0xFFFFFF))
 
-# Generate a color for each element in the list
-colors = [random_color() for _ in unique_values_domain]
-
-# Combine elements with their corresponding colors
-elements_with_colors = list(zip(unique_values_domain, colors))
-
-list_colors_domain = []
-
-# Print the list of elements with their colors
-for element, color in elements_with_colors:
-    list_colors_domain.append(color)
-#--------------------------------------------------------------------------------------------
-#class COLORS
-
-# Function to generate a random color in hexadecimal format
-def random_color():
-    return "#{:06x}".format(random.randint(0, 0xFFFFFF))
-
-# Generate a color for each element in the list
-colors = [random_color() for _ in unique_values_class]
-
-# Combine elements with their corresponding colors
-elements_with_colors = list(zip(unique_values_class, colors))
-
-list_colors_class = []
-
-# Print the list of elements with their colors
-for element, color in elements_with_colors:
-    list_colors_class.append(color)
-#--------------------------------------------------------------------------------------------
+phylum_labels, phylum_colors, phylum_color_map = labels_and_colors(unique_values_phylum)
+class_labels, class_colors, class_color_map = labels_and_colors(unique_values_class)
+domain_labels, domain_colors, domain_color_map = labels_and_colors(unique_values_domain)
 
 #Generate the itol_file
 from tqdm import tqdm
-
-# Specify colors and labels
-
-phylum_labels = unique_values_phylum
-phylum_colors = list_colors_phylum
-phylum_color_map = dict(zip(phylum_labels, phylum_colors))
-
-class_labels = unique_values_class
-class_colors = list_colors_class
-class_color_map = dict(zip(class_labels, class_colors))
-
-domain_labels = unique_values_domain
-domain_colors = list_colors_domain
-domain_color_map = dict(zip(domain_labels, domain_colors)) 
 
 # Output itol files
 phylum_itol_file = args.phylum_itol_file
