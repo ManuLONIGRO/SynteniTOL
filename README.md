@@ -77,7 +77,11 @@ results/run_timestamp/
 ├── itol_binary.txt             # iTOL dataset: Mapped genes
 ├── itol_synteny_oriented.txt   # iTOL dataset: Synteny
 ├── formatted_headers.fasta     # header format: protein_id|specie_name|strain|isolate
-└── run_command.txt             # Reproducibility record
+├── run_command.txt             # Reproducibility record
+├── timeline.html               # Nextflow execution timeline
+├── report.html                 # Nextflow execution report
+├── trace.txt                   # Nextflow task trace
+└── flowchart.png               # Nextflow workflow DAG
 ```
 
 ---
@@ -97,18 +101,29 @@ nextflow run main.nf [OPTIONS]
 | Parameter          | Description                                                               |
 |--------------------|---------------------------------------------------------------------------|
 | `--inputFASTA`     | Input FASTA file containing protein sequences (e.g., from BLASTp results) |
-| `--cogs`           | Comma-separated list of COG identifiers (e.g., `COG1152,COG1795`)         |
+| `--cogs`           | Comma-separated list of COG identifiers (e.g., `COG1152,COG1795`). Each COG must appear only once. |
 **IMPORTANT: the first cog in --cogs is the COG of the protein homologs in the FASTA file**
 
 ### Optional Parameters
 
-| Parameter          | Description                                                               |
-|--------------------|---------------------------------------------------------------------------|
-| `--ncbi_api_key`   | NCBI API key to increase rate limits (recommended for large queries)      |
-| `--color_by_group` | Group COGs for coloring in iTOL (format: `COG1229-COG1029,COG2218`)       |
-| `--no_taxonomy`    | Skip NCBI taxonomy lookup and taxonomic iTOL layers (domain/phylum/class) |
-| `--outdir`         | Output directory for results                                              |
-| `--help`           | Display help message                                                      |
+| Parameter               | Description                                                                                    |
+|-------------------------|------------------------------------------------------------------------------------------------|
+| `--custom_hmm_profiles` | Comma-separated paths to custom HMM profiles (e.g., `profile_x.hmm,profile_y.hmm`). Each path must appear only once, and each resolved profile name must be unique (names are taken from the filename, without `.hmm` and an optional `profile_` prefix). |
+| `--query_profile`       | Profile label used as reference for synteny plots instead of the first COG (must match a COG or custom profile name) |
+| `--ncbi_api_key`        | NCBI API key to increase rate limits (recommended for large queries)                           |
+| `--color_by_group`      | Group COGs for coloring in iTOL (format: `COG1229-COG1029,COG2218`)                             |
+| `--no_taxonomy`         | Skip NCBI taxonomy lookup and taxonomic iTOL layers (domain/phylum/class)                      |
+| `--outdir`              | Output directory for results                                                                   |
+| `--help`                | Display help message                                                                           |
+
+### Input validation
+
+Before any process runs, the pipeline checks `--cogs` and `--custom_hmm_profiles` for duplicates. If a value is repeated, the run stops immediately with an error that lists the duplicates (including how many times each appears).
+
+- **`--cogs`**: duplicate COG IDs are rejected (e.g. `COG1152,COG1795,COG1152`).
+- **`--custom_hmm_profiles`**: duplicate file paths are rejected; duplicate profile names resolved from different paths are also rejected (e.g. `dir1/gene1.hmm` and `dir2/gene1.hmm` both map to profile name `gene1`).
+
+COG identifiers must also match the format `COGXXXX` with `XXXX` from `0001` to `5950`; invalid IDs are rejected at startup.
 
 ### Examples
 

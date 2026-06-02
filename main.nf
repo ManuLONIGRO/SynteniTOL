@@ -80,11 +80,11 @@ workflow {
         Options:
         --inputFASTA       Input FASTA file with sequences from blastp results (mandatory)
         --cogs             Comma-separated list of COGs (e.g., COG1152,COG1795) (mandatory)
-        --custom_hmm_profiles Optional comma-separated list of custom HMM profile paths to include (e.g., profile_x.hmm,profile_y.hmm)
+        --custom_hmm_profiles Optional comma-separated list of custom HMM profile paths (each path and profile name must be unique)
         --query_profile    Optional profile label to use as reference for inputFASTA (must exist in COGs/custom profiles)
         --color_by_group   Optional parameter to color by group in iTOL files. (e.g. COG1229-COG1029,COG2218,COG2037 COG1229 and COG1029 will be in the same color) 
         --no_taxonomy      Skip NCBI taxonomy lookup and taxonomic iTOL files (domain/phylum/class)
-        --evalue           E-value threshold used in search/filtering steps (default: 1e-5)
+        --evalue           E-value threshold used in search/filtering steps (default: 1e-10)
         --outdir           Output directory (default: results/run_<timestamp>)
         --ncbi_api_key     NCBI API key to increase rate limits (optional but recommended)
         --help             Show this help message and exit
@@ -123,6 +123,14 @@ workflow {
         .tokenize(',')
         .collect { v -> v.trim() }
         .findAll { v -> v }
+    def duplicate_custom_paths = custom_profiles_list
+        .countBy { profilePath -> profilePath }
+        .findAll { profilePath, count -> count > 1 }
+        .collect { profilePath, count -> "${profilePath} (×${count})" }
+    if (duplicate_custom_paths) {
+        error "${RED}Duplicate paths in --custom_hmm_profiles: ${duplicate_custom_paths.join(', ')}. Each profile path must appear only once.${RESET}"
+    }
+
     def custom_profile_tuples = custom_profiles_list.collect { profilePath ->
         def profileFile = file(profilePath)
         if (!profileFile.exists()) {
@@ -133,11 +141,27 @@ workflow {
     }
     def custom_profile_names = custom_profile_tuples.collect { entry -> entry[0] }
 
+    def duplicate_custom_names = custom_profile_names
+        .countBy { profileName -> profileName }
+        .findAll { profileName, count -> count > 1 }
+        .collect { profileName, count -> "${profileName} (×${count})" }
+    if (duplicate_custom_names) {
+        error "${RED}Duplicate custom profile names in --custom_hmm_profiles: ${duplicate_custom_names.join(', ')}. Profile names are derived from filenames (without .hmm and optional profile_ prefix); each must be unique.${RESET}"
+    }
+
     // Check the cogs in the list of cogs. If one COG is other thing that COGXXXX, with XXXX from 0001 to 5950, exit with error. Print the error in red.
     def cog_pattern = ~/^COG(0[0-9]{3}|[1-5][0-9]{3}|5950)$/
     def invalid_cogs = cogs_list.findAll { cog -> !(cog ==~ cog_pattern) }
     if (invalid_cogs) {
         error "${RED}Invalid COG identifiers found: ${invalid_cogs.join(', ')}. COGs should be in the format COGXXXX, where XXXX is a number from 0001 to 5950.${RESET}"
+    }
+
+    def duplicate_cogs = cogs_list
+        .countBy { cog -> cog }
+        .findAll { cog, count -> count > 1 }
+        .collect { cog, count -> "${cog} (×${count})" }
+    if (duplicate_cogs) {
+        error "${RED}Duplicate COG identifiers in --cogs: ${duplicate_cogs.join(', ')}. Each COG must appear only once.${RESET}"
     }
 
 
