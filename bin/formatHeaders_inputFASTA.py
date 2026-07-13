@@ -16,12 +16,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--input_fasta", type=str, required=True, help="Input FASTA file path")
 parser.add_argument("--dataframe", type=str, required=True, help="Path to the dataframe CSV file")
 parser.add_argument("--output_fasta", type=str, required=True, help="Output formatted FASTA file path")
-# parser.add_argument("--protein_to_organism_map_tsv", type=str, required=True, help="Path to the protein to organism mapping TSV file")
 args = parser.parse_args()
 
 input_fasta = args.input_fasta
 dataframe = args.dataframe
-# protein_to_organism_map_tsv = args.protein_to_organism_map_tsv
 output_fasta = args.output_fasta
 #-------------------------------------------------------------------------
 # Load dataframe
@@ -36,19 +34,8 @@ for _, row in df.iterrows():
     isolate = row["local_isolate"].replace(" ", "_").replace(";","_").replace("=","_")
     protein_id = row["protein_id"]
     protein_id_to_info[protein_id] = (taxid, species_name, isolate)
-    #protein_id_to_info[protein_id] = (taxid)
 #-------------------------------------------------------------------------
 print(protein_id_to_info)
-# # Load taxonomy TSV to get species_name and isolate
-# df = pd.read_csv(protein_to_organism_map_tsv, sep="\t", na_values="NA")
-# df = df.fillna("NA")
-# for _, row in df.iterrows():
-#     protein_id = row["protein"].split('.')[0].strip()
-#     species_name = row["organism"].replace(" ", "_")
-#     isolate = row["isolate"]
-#     if protein_id in protein_id_to_info:
-#         taxid = protein_id_to_info[protein_id]
-#         protein_id_to_info[protein_id] = (taxid, species_name, isolate)
 
 # create header to replace for protein_id, create n_repetition of the header to add |n_repetitions to the new_header
 header_count = {}

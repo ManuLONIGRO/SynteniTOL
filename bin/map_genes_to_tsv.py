@@ -108,8 +108,7 @@ def build_dataframe(genomes_dir: str,
             records = list(SeqIO.parse(gbff_path, "genbank"))
             if not records:
                 continue
-            taxid = None
-            # local_isolate = "NA"
+            taxid = None            
             for record in records:
                 for feature in record.features:
                     if feature.type == "source":

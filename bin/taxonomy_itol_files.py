@@ -24,7 +24,6 @@ parser.add_argument("--phylum_itol_file", required=True, help="Output itol file 
 parser.add_argument("--class_itol_file", required=True, help="Output itol file for class")
 
 args = parser.parse_args()
-# output_base_path = '/home/mlonigro/syntenitol/results/'
 
 # Load taxonomy.tsv
 taxonomy_tsv = args.taxonomy_tsv
@@ -51,7 +50,6 @@ dic_domain = {}
 dic_phylum = {}
 dic_class = {}
 
-# fasta_file = "/home/mlonigro/syntenitol/results/formatted_headers.fasta"
 fasta_file = args.fasta_file
 for record in SeqIO.parse(fasta_file, "fasta"):
     header = record.id
@@ -71,10 +69,10 @@ for record in SeqIO.parse(fasta_file, "fasta"):
 
 #-------------------------------------------------------------------------------------------------
 # Valores unicos 
-unique_values_phylum_conAsgard = list(set(dic_phylum.values())) #Contain desglosed groups of Asgard
+unique_values_phylum = list(set(dic_phylum.values())) #Contain desglosed groups of Asgard
 unique_values_domain = list(set(dic_domain.values()))
 unique_values_class = list(set(dic_class.values()))
-#I want to replace all the phylums of Asgard by 1 single name to not have so many in the tree
+# Replace all the phylums of Asgard by 1 single name to not have so many in the tree
 
 # Phylums to be renamed
 phylums_to_replace = [
@@ -102,7 +100,7 @@ phylums_to_replace = [
 # New name
 new_phylum = "Promethearchaeati"
 
-# Reemplazar los valores en el diccionario
+# Replace the values in the dictionary
 for species, phylum in dic_phylum.items():
     if phylum in phylums_to_replace:
         dic_phylum[species] = new_phylum
@@ -111,7 +109,7 @@ for species, phylum in dic_phylum.items():
         dic_phylum[species] = "Promethearchaeati"
 
 
-unique_values_phylum = list(set(dic_phylum.values()))
+unique_values_phylum_sinAsgard = list(set(dic_phylum.values()))
 
 
 def evenly_spaced_colors(n):
@@ -192,6 +190,3 @@ with open(domain_itol_file, 'w') as domain_file:
         taxid = taxid.replace("(","_").replace(")","_")
         color = domain_color_map.get(domain_, "#FFFFFF")  # White if the domain is not mapped
         domain_file.write(f"{taxid},{color}\n")
-
-# Generar archivos iTOL
-#generate_itol_colorstrip_files(df, output_base_path)

@@ -10,11 +10,9 @@ taxid|species_name|isolate|n_repetitions
 
 @author: mlonigro
 """
-
-
-# Script para mapear IDs de proteínas encontradas por hmmsearch a sus locus_tag en archivos .gbff.
-# Procesa múltiples archivos .result en paralelo para acelerar el análisis.
-# Guarda los mapeos en 'id_locustag.txt' y los IDs no encontrados en 'ids_no_mapeadas.txt'.
+# Script to map protein IDs found by hmmsearch to their locus_tag in .gbff files.
+# Processes multiple .result files in parallel to speed up the analysis.
+# Saves the mappings in 'id_locustag.txt' and the IDs not found in 'ids_no_mapeadas.txt'.
 
 import os
 from Bio import SeqIO
@@ -43,20 +41,17 @@ def procesar_archivo(result_path):
             return []
 
         filename = os.path.basename(result_path)
-        # original code assumed filename like "<organism>_... .result"
         organism_name = filename.split("_")[0]
         gbff_file = os.path.join(genomes_dir, f"{organism_name}.gbff")
-        # name_file_gbff = f"{organism_name}.gbff"
 
         if not os.path.exists(gbff_file):
             print(f"GBFF not found for {organism_name}: {gbff_file}", file=sys.stderr)
             return None
 
-        # Diccionario para acumular información por cada hit con e‑value <= límite
-        # hit_stats[hit_id] = {"total_aligned": int, "evalue": float}
+        # Dictionary to accumulate information for each hit with e‑value <= limit
         hit_stats = {}
 
-        # Parse hmmsearch result file y guardar TODOS los hits con e‑value <= evalue_limit
+        # Parse hmmsearch result file and save ALL hits with e‑value <= evalue_limit
         with open(result_path, "r") as f:
             for line in f:
                 if line.startswith("#"):
@@ -64,10 +59,10 @@ def procesar_archivo(result_path):
 
                 parts = line.split()
                 if len(parts) < 19:
-                    # línea rara / incompleta; la saltamos
+                    # strange/incomplete line; skip it
                     continue
 
-                # obtener todos los hits que tengan un evalue <= evalue_limit
+                # get all hits with an evalue <= evalue_limit
                 evalue = float(parts[6])
                 if evalue > evalue_limit:
                     continue
@@ -84,13 +79,13 @@ def procesar_archivo(result_path):
                 print(f"The accuracy for hmmsearch of {hit_id} is {hmm_acc}")
                 stats["hmm_acc"] = hmm_acc
                 
-                # Guardamos el mejor (mínimo) e‑value observado para ese hit
+                # Save the best (minimum) e‑value observed for that hit
                 if evalue < stats["evalue"]:
                     stats["evalue"] = evalue
                 
                 
 
-        # Si no hubo hits por debajo del límite
+        # If there were no hits below the limit
         if not hit_stats:
             return [("no hits",)]
 
@@ -106,7 +101,7 @@ def procesar_archivo(result_path):
                 if not protein_id:
                     continue
 
-                # Nos quedamos con el ID tal cual aparece en hmmsearch (sin recortar el sufijo)
+                # We keep the ID as it appears in hmmsearch (without the suffix)
                 if protein_id not in hit_stats:
                     continue
 
@@ -124,7 +119,7 @@ def procesar_archivo(result_path):
                     ("mapeado", protein_id, found_locus_tag, length_seq, total_aligned, evalue, hmmsearch_acc)
                 )
 
-        # Cualquier hit que quedó en hit_stats pero no se encontró en el GBFF se marca como no mapeado
+        # Any hit that remained in hit_stats but was not found in the GBFF is marked as not mapped
         mapped_ids = {r[1] for r in resultados if r[0] == "mapeado"}
         for hit_id in hit_stats.keys():
             if hit_id not in mapped_ids:
@@ -141,7 +136,7 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(no_mapeadas_file) or ".", exist_ok=True)
     resultado = procesar_archivo(result_file)
     if not resultado:
-        # nothing to write (no hits or errors logged to stderr)
+        # Nothing to write (no hits or errors logged to sys.stderr)
         sys.exit(0)
 
     # Prefer explicit label from workflow; fallback keeps backward compatibility

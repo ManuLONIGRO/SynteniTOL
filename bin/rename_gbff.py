@@ -23,11 +23,6 @@ tsv_path = args.tsv
 base_dir = args.result_zip_ncbi_dir
 output_dir = args.output_dir_genomes
 
-
-#tsv_path = "/home/mlonigro/pvc/blast/test/protein_to_organism_map.tsv"
-#base_dir = "/home/mlonigro/pvc/blast/test/small_gbffs/ncbi_dataset/data/"       # donde están las carpetas de cada assembly
-#output_dir = "/home/mlonigro/pvc/blast/test/genomes"    # donde querés guardar los .gbff copiados
-
 os.makedirs(output_dir, exist_ok=True)
 
 with open(tsv_path, newline="") as tsvfile:
@@ -35,9 +30,7 @@ with open(tsv_path, newline="") as tsvfile:
     for row in reader:
         assembly = row["assembly"].strip()
         protein_id = row["protein"].strip()
-        # organism = row["organism"].strip().lower().replace(" ", "").replace("-","").replace(":","")
         organism = re.sub(r"[^a-zA-Z0-9]", "", row["organism"].strip().lower())
-        # isolate = row["isolate"].strip().lower().replace(" ", "") if "isolate" in row and row["isolate"].strip() else ""
         raw_isolate = row.get("isolate", "")
         isolate = re.sub(r"[^a-zA-Z0-9]", "", raw_isolate.strip().lower()) if raw_isolate.strip() else ""
 
@@ -46,7 +39,7 @@ with open(tsv_path, newline="") as tsvfile:
             print(f"[!] The dir: {src_dir} it doesn't exists.")
             continue
 
-        # buscar archivo .gbff dentro del directorio
+        # Search for .gbff file within the directory
         gbff_files = [f for f in os.listdir(src_dir) if f.endswith(".gbff")]
         if not gbff_files:
             print(f"[!] There isn't .gbff in {src_dir}")

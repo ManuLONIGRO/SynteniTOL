@@ -23,16 +23,12 @@ args = parser.parse_args()
 input_dir = args.genomes_dir
 output_dir = args.proteomes_dir
 
-#input_dir = "/home/mlonigro/pvc/blast/test/genomes/"
-#output_dir = "/home/mlonigro/pvc/blast/test/proteomes/"
-
-os.makedirs(output_dir, exist_ok=True)  # Asegura que exista el directorio de salida
-
+os.makedirs(output_dir, exist_ok=True)  # The dir exists or is created
 def procesar_gbff(filename):
     input_file = os.path.join(input_dir, filename)
     output_file = os.path.join(output_dir, filename.replace(".gbff", ".prot"))
 
-    # Si ya existe, saltar
+    # If it already exists, skip
     if os.path.exists(output_file):
         return f"⏭️  {filename} ya procesado."
 

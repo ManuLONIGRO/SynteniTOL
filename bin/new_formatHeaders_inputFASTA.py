@@ -16,20 +16,15 @@ from Bio import SeqIO
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input_fasta", type=str, required=True, help="Input FASTA file path")
-#parser.add_argument("--dataframe", type=str, required=True, help="Path to the dataframe CSV file")
 parser.add_argument("--output_fasta", type=str, required=True, help="Output formatted FASTA file path")
 parser.add_argument("--genomes_dir", type=str, required=False, help="Path to the directory containing .gbff files")
-# parser.add_argument("--protein_to_organism_map_tsv", type=str, required=True, help="Path to the protein to organism mapping TSV file")
 args = parser.parse_args()
 
 input_fasta = args.input_fasta
-#dataframe = args.dataframe
-# protein_to_organism_map_tsv = args.protein_to_organism_map_tsv
 output_fasta = args.output_fasta
 genomes_dir = args.genomes_dir
 
 # Get the protein_id from the fasta file. Format is >protein_id:other info
-#protein_ids = set()
 protein_ids = []
 with open(input_fasta, "r") as infile:
     for line in infile:
@@ -43,8 +38,6 @@ for gbff_file in os.listdir(genomes_dir):
     if gbff_file.endswith(".gbff"):
         gbff_path = os.path.join(genomes_dir, gbff_file)
         for record in SeqIO.parse(gbff_path, "genbank"):
-            # source = record.annotations.get("source","")
-            # organism = record.annotations.get("organism","")
             organism = "NA"
             isolate = "NA"
             strain = "NA"
@@ -60,15 +53,6 @@ for gbff_file in os.listdir(genomes_dir):
                     strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
                     isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
 
-                    # # taxid
-                    # if "db_xref" in feature.qualifiers:
-                    #     for x in feature.qualifiers["db_xref"]:
-                    #         if x.startswith("taxon:"):
-                    #             taxid = x.split(":")[1]
-                    # # isolate
-                    # if "isolate" in feature.qualifiers:
-                    #     isolate = feature.qualifiers["isolate"][0]
-                    
                 # Search protein_id in CDS
                 if feature.type == "CDS" and "protein_id" in feature.qualifiers:
                     pid = feature.qualifiers["protein_id"][0]
@@ -92,6 +76,7 @@ with open(input_fasta, "r") as infile, open(output_fasta, "w") as outfile:
                 species_name = info.get("organism", "NA").replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
                 strain = info.get("strain", "NA").replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
                 isolate = info.get("isolate", "NA").replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
+
                 # Count repetitions
                 header = f">{taxid}|{species_name}|{strain}|{isolate}"
                 if header not in header_count:

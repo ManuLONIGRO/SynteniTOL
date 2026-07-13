@@ -175,9 +175,7 @@ DATA
         # Collect genes mapped to window with coloring
         for gene in genes:
             start, end, strand, gene_name, locus_tag = gene
-            #head_arrow = 300 if abs(end - start) > 310 else 200 if abs(end - start) > 210 else 100  # Short genes get smaller heads avoiding an error in iTOL
             color = genes_color_dic.get(gene_name, "#FFFFFF")
-            #direction, head_width_left, head_width_right = ("left", "0", head_arrow) if strand == -1 else ("right", head_arrow, "0")
             if context_inicio <= start <= context_fin:
                 start_reference = start - start_goi + 50000
                 end_reference = end - start_goi + 50000
@@ -215,7 +213,6 @@ for item in datos_binarios:
     genes = item[2]
     organism_names.append(organism_name)
     if organism_name not in organism_gene_presence:
-        # -1 hides, better contrast for absence
         organism_gene_presence[organism_name] = {gene: "-1" for gene in gene_list}
     for start, end, strand, gene_name, protein_id in genes:
         if gene_name in gene_list:
