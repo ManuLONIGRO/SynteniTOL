@@ -79,10 +79,10 @@ def procesar_archivo(result_path):
                 stats = hit_stats.setdefault(hit_id, {"total_aligned": 0, "evalue": evalue})
                 stats["total_aligned"] += int(domain_len)
                 
-                # Get the coverage acc
-                hmm_coverage = float(parts[21])
-                print(f"The coverage for hmmsearch of {hit_id} is {hmm_coverage}")
-                stats["hmm_coverage"] = hmm_coverage
+                # Get the acc
+                hmm_acc = float(parts[21])
+                print(f"The accuracy for hmmsearch of {hit_id} is {hmm_acc}")
+                stats["hmm_acc"] = hmm_acc
                 
                 # Guardamos el mejor (mínimo) e‑value observado para ese hit
                 if evalue < stats["evalue"]:
@@ -118,10 +118,10 @@ def procesar_archivo(result_path):
                 stats = hit_stats[protein_id]
                 total_aligned = stats["total_aligned"]
                 evalue = stats["evalue"]
-                hmmsearch_cover = stats["hmm_coverage"]
+                hmmsearch_acc = stats["hmm_acc"]
 
                 resultados.append(
-                    ("mapeado", protein_id, found_locus_tag, length_seq, total_aligned, evalue, hmmsearch_cover)
+                    ("mapeado", protein_id, found_locus_tag, length_seq, total_aligned, evalue, hmmsearch_acc)
                 )
 
         # Cualquier hit que quedó en hit_stats pero no se encontró en el GBFF se marca como no mapeado
@@ -156,10 +156,10 @@ if __name__ == "__main__":
         for item in resultado:
             etiqueta = item[0]
             if etiqueta == "mapeado":
-                _, protein_id, locus_tag, length_seq, total_aligned, evalue, hmmsearch_cover  = item
+                _, protein_id, locus_tag, length_seq, total_aligned, evalue, hmmsearch_acc  = item
                 out_map.write(
                     f"{protein_id} -> {locus_tag}\tcog={cog}\tlen={length_seq}\t"
-                    f"aligned={total_aligned}\tevalue={evalue}\thmmsearch_cover={hmmsearch_cover}\n"
+                    f"aligned={total_aligned}\tevalue={evalue}\thmmsearch_acc={hmmsearch_acc}\n"
                 )
             elif etiqueta == "no hits":
                 out_map.write("no hits\n")
