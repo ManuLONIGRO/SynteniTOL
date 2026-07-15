@@ -75,7 +75,6 @@ df_cog= df_filtered[
     (df_filtered["evalue"] <= choose_evalue)].copy()
 df_cog["organism"] = df_cog["locus_tag"].str.split("_").str[0]
 
-#%%
 def best_hit_per_organism_by_prefix(
     df,
     cog_of_interest=cog_of_interest,
@@ -156,7 +155,7 @@ best_goi_dataframe, candidates_dataframe = best_hit_per_organism_by_prefix(
     gene_list=gene_list, # Passes the whole list for density/centrality
     window=300
 )
-#%%
+
 #output candidates in a new tsv
 candidates_flag = args.out_candidates_tsv
 if candidates_flag:
@@ -165,7 +164,6 @@ if candidates_flag:
 best_goi_dataframe_tsv_flag = args.out_best_goi_tsv
 if best_goi_dataframe_tsv_flag:
     best_goi_dataframe.to_csv(best_goi_dataframe_tsv_flag, sep="\t", index=False)
-
 
 #----------------------------------------------------------------------------------------------------------------------------
 # Define organism from locus_tag prefix 

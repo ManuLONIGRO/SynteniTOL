@@ -5,7 +5,7 @@ Created on Fri May 23 10:51:44 2025
 
 Updated for NEXTFLOW
 
-- Reads synteny and presence/binary inputs produced by createFiles2Synteny.py
+- Reads synteny inputs produced by createFiles2Synteny.py and organism gene presence from itol_binary.py
 - Dynamic gene list from --cogs (comma-separated) or --gene_list
 - Optional --color_by_group: e.g. COG1152-COG1229,COG1795 groups colors by token
 - Generates contrasting colors automatically
@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument("--genomic_context_data", type=str, required=True, help="Path to genomic context data file")
     parser.add_argument("--itol_synteny_file", type=str, required=True, help="Output path for itol synteny oriented file")
     parser.add_argument("--synteny_log", type=str, required=True, help="Output path for synteny log file")
-    parser.add_argument("--presence_binary_data", type=str, required=True, help="Path to presence binary data file")
+    parser.add_argument("--organism_genes_tsv", type=str, required=True, help="Path to organism gene presence TSV from itol_binary.py")
     parser.add_argument("--itol_profiling_file", type=str, required=True, help="Output path for itol binary data file")
     parser.add_argument("--best_goi_tsv", type=str, required=True, help="Path to best GOI per organism TSV file")
     return parser.parse_args()
@@ -116,7 +116,7 @@ genes_color_dic, gen_color = assign_colors(gene_list, color_groups)
 genomes_itol = args.genomic_context_data
 archivo_sintenia = args.itol_synteny_file
 archivo_log = args.synteny_log
-archivo_binario = args.presence_binary_data
+archivo_binario = args.organism_genes_tsv
 itol_binario = args.itol_profiling_file
 headers_file = f"organismos_binario_{gene_of_interest}_{formatted_evalue}"
 
@@ -194,29 +194,14 @@ DATA
 organism_gene_presence: Dict[str, Dict[str, str]] = {}
 organism_names: List[str] = []
 
-with open(archivo_binario, "r") as f:
-    lineas = f.readlines()
-
-datos_binarios = []
-for linea in lineas:
-    try:
-        parsed_line = ast.literal_eval(linea.strip())
-        organism_name = parsed_line[0]
-        genome_length = parsed_line[1]
-        genes = parsed_line[2]
-        datos_binarios.append((organism_name, genome_length, genes))
-    except ValueError:
-        continue
-
-for item in datos_binarios:
-    organism_name = item[0]
-    genes = item[2]
+presence_df = pd.read_csv(archivo_binario, sep="\t", dtype=str)
+for _, row in presence_df.iterrows():
+    organism_name = row["organism"]
+    genes_present = {g.strip() for g in str(row["genes"]).split(",") if g.strip()}
     organism_names.append(organism_name)
-    if organism_name not in organism_gene_presence:
-        organism_gene_presence[organism_name] = {gene: "-1" for gene in gene_list}
-    for start, end, strand, gene_name, protein_id in genes:
-        if gene_name in gene_list:
-            organism_gene_presence[organism_name][gene_name] = "1"
+    organism_gene_presence[organism_name] = {
+        gene: ("1" if gene in genes_present else "-1") for gene in gene_list
+    }
 
 n_fields = ",1" * len(gene_list)
 

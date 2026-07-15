@@ -5,7 +5,6 @@ process generate_synteny_data {
     input:
 		tuple val(cogs_csv), path(genomes_dir), path(dataframe), path(createFiles2Synteny_script), path(protein_to_organism_map), val(evalue)
 	output:
-		path "*_presence_binary_data_*", optional: true, emit: presence_binary_data
 		path "*_genomic_context_data_*_oriented", optional: true
 		path "*_genomic_context_data_*_sector", optional: true, emit: synteny_contexts
         path "df_complete.tsv", emit: df_complete
