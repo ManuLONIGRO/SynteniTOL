@@ -2,7 +2,9 @@ process generate_synteny_data {
     publishDir params.outdir, mode: 'copy', pattern: "df_complete.tsv"
     publishDir params.outdir, mode: 'copy', pattern: "candidates.tsv"
 	publishDir params.outdir, mode: 'copy', pattern: "best_goi.tsv"
-    input:
+	publishDir params.outdir, mode: 'copy', pattern: "*_gene_presence_per_organism_*"
+	
+	input:
 		tuple val(cogs_csv), path(genomes_dir), path(dataframe), path(createFiles2Synteny_script), path(protein_to_organism_map), val(evalue)
 	output:
 		path "*_genomic_context_data_*_oriented", optional: true
@@ -10,6 +12,7 @@ process generate_synteny_data {
         path "df_complete.tsv", emit: df_complete
         path "candidates.tsv", emit: candidates_tsv
         path "best_goi.tsv", emit: best_goi_tsv
+        path "*_gene_presence_per_organism_*", emit: binary_presence
 
 	script:
 	"""

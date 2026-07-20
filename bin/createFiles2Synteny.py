@@ -185,6 +185,8 @@ locus_goi_set = locus_tags_cog_list
 
 # Rows for the new tsv with species info
 rows_to_tsv = []
+# Dictionary to store organism metadata for binary presence file
+organism_metadata: Dict[str, Dict[str, str]] = {}
 
 def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: set, protein_set: set):
 
@@ -252,6 +254,19 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
         header = f"{local_taxid}|{local_species}|{local_strain}|{local_isolate}"
     else:
         header = "Unknown|Unknown|Unknown|Unknown|NA"
+
+    # Store organism metadata using locus_tag prefix for binary presence file
+    # Extract prefix from best contig genes
+    for _, _, _, _, locus_tag in best_contig_genes:
+        organism_prefix = locus_tag.split("_")[0]
+        if organism_prefix not in organism_metadata:
+            organism_metadata[organism_prefix] = {
+                "taxid": local_taxid if local_taxid != "NA" else "NA",
+                "species": local_species,
+                "strain": local_strain,
+                "isolate": local_isolate
+            }
+        break
 
     return (header, best_contig_len, best_contig_genes)
 
@@ -343,6 +358,54 @@ with open(oriented_out, "r") as infile, open(sector_out, "w") as outfile:
         header, genome_length, genes = data
         genes_oriented = context_goi(genes)
         outfile.write(f"{(header, genome_length, genes_oriented)}\n")
+
+# ----- Create binary presence file based on dataframe grouping per organism -----
+print("Creating binary presence file from dataframe results per organism...")
+
+# Add organism prefix to filtered dataframe
+df_filtered_copy = df_filtered.copy()
+df_filtered_copy["organism"] = df_filtered_copy["locus_tag"].str.split("_").str[0]
+
+# Group by organism and collect all genes
+organism_genes = (
+    df_filtered_copy.groupby("organism")
+    .agg(genes=("gene", lambda values: sorted(set(values))))
+    .reset_index()
+)
+
+# Build headers and write binary presence file
+binary_organism_out = f"{args.out_prefix}_gene_presence_per_organism_{formatted_evalue}"
+header_count_binary = {}
+
+with open(binary_organism_out, "w") as f:
+    # Write header row
+    f.write("organism\tgenes\n")
+    for _, row in organism_genes.iterrows():
+        organism = row["organism"]
+        genes = row["genes"]
+        
+        # Get metadata from organism_metadata if available
+        if organism in organism_metadata:
+            meta = organism_metadata[organism]
+            taxid = meta["taxid"]
+            species = meta["species"]
+            strain = meta["strain"]
+            isolate = meta["isolate"]
+            base_header = f"{taxid}|{species}|{strain}|{isolate}"
+        else:
+            # Fallback to organism prefix if metadata not available
+            base_header = f"NA|NA|NA|{organism}"
+        
+        # Add repetition counter to header
+        header_count_binary[base_header] = header_count_binary.get(base_header, 0) + 1
+        header_with_rep = f"{base_header}|{header_count_binary[base_header]}"
+        
+        # Write organism and genes
+        genes_str = ",".join(genes)
+        f.write(f"{header_with_rep}\t{genes_str}\n")
+
+print(f"Created binary presence file: {binary_organism_out}")
+print(f"Total organisms: {len(organism_genes)}")
 
 # Create the new tsv with species info
 print(rows_to_tsv)
