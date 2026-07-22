@@ -1,5 +1,5 @@
 process merge_mappings {
-    publishDir params.outdir, mode: 'copy'
+    // publishDir params.outdir, mode: 'copy'
     input:
     path map_files, arity: '1..*'
     output:

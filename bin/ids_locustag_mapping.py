@@ -25,7 +25,7 @@ parser.add_argument("--result_file", required=True, help="Path to a single .resu
 parser.add_argument("--gene_name", required=False, help="Gene/profile label to annotate mapping rows")
 parser.add_argument("--output_file", required=True, help="Path to the output mapping file (append mode)")
 parser.add_argument("--no_mapped_file", required=True, help="Path to the output file for unmapped IDs (append mode)")
-parser.add_argument("--evalue", type=float, default=1e-5, help="E-value threshold for filtering")
+parser.add_argument("--evalue", type=float, default=1e-10, help="E-value threshold for filtering")
 args = parser.parse_args()
 
 genomes_dir = args.genomes_dir
@@ -76,7 +76,7 @@ def procesar_archivo(result_path):
                 
                 # Get the acc
                 hmm_acc = float(parts[21])
-                print(f"The accuracy for hmmsearch of {hit_id} is {hmm_acc}")
+                #print(f"The accuracy for hmmsearch of {hit_id} is {hmm_acc}")
                 stats["hmm_acc"] = hmm_acc
                 
                 # Save the best (minimum) e‑value observed for that hit

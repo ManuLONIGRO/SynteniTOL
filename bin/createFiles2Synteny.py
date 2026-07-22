@@ -17,7 +17,7 @@ import pandas as pd
 from Bio import SeqIO
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--evalue", type=float, default=1e-5, help="E-value threshold for filtering")
+parser.add_argument("--evalue", type=float, default=1e-10, help="E-value threshold for filtering")
 parser.add_argument("--input_dir", type=str, required=True, help="Input directory containing .gbff files")
 parser.add_argument("--dataframe", type=str, required=True, help="Path to the dataframe TSV file")
 parser.add_argument("--out_prefix", type=str, required=True, help="Output prefix for generated files")
@@ -37,8 +37,7 @@ print(f"Reading dataframe from {args.dataframe}")
 
 df = pd.read_csv(args.dataframe, sep="\t", dtype={'protein_id': str})
 # Filter by accuracy
-df_filtered = df[df["acc"] >= 0.60]
-
+df_filtered = df[df["acc"] >= 0.60].sort_values(by="acc", ascending=False)
 # Load protein_to_organism_map.tsv early and normalize key column
 map_tsv = args.protein_to_organism_map_tsv
 df_organism_map = pd.read_csv(map_tsv, sep="\t", dtype={"protein": str, "protein_id": str}).rename(columns={'protein': 'protein_id'})
