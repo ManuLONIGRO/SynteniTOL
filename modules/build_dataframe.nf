@@ -11,10 +11,10 @@ process build_dataframe {
     script:
     """
     mkdir -p results_dir
-    for f in ${hmm_results_files}; do cp "\$f" results_dir/; done
-    conda run -n syntenitol python3 ${map_genes_to_tsv_script} \
-      --genomes_dir ${genomes_dir} \
-      --mappings_file ${mappings_file} \
+    for f in ${hmm_results_files.collect { "'${it}'" }.join(' ')}; do cp "\$f" results_dir/; done
+    conda run -n syntenitol python3 "${map_genes_to_tsv_script}" \
+      --genomes_dir "${genomes_dir}" \
+      --mappings_file "${mappings_file}" \
       --results_dir results_dir \
       --out_tsv dataframe.tsv
     """

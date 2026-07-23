@@ -16,8 +16,8 @@ process efetch_to_tsv {
     def api_opt = params.ncbi_api_key ? "--ncbi_api_key ${params.ncbi_api_key}" : ""
     """
     echo "Running efetch_to_tsv with inputFASTA: ${inputFASTA}, api_opt: '${api_opt}'"
-    conda run -n syntenitol python3 ${efetch_script} \
-        --fasta ${inputFASTA} \
+    conda run -n syntenitol python3 "${efetch_script}" \
+        --fasta "${inputFASTA}" \
         --out_tsv protein_to_organism_map.tsv \
         --out_assemblies assemblies_to_download \
         --out_no_assembly_list no_assembly_list.txt \

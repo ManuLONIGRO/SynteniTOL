@@ -10,7 +10,7 @@ process merge_mappings {
     out_file="all_mappings_${task.index}.map"
     : > "\$out_file"
 
-    for f in ${map_files}; do
+    for f in ${map_files.collect { "'${it}'" }.join(' ')}; do
         # grep returns 1 when no lines match (e.g. file contains only "no hits")
         grep -h -v "no hits" "\$f" >> "\$out_file" || true
     done

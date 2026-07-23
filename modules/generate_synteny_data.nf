@@ -18,13 +18,13 @@ process generate_synteny_data {
 	"""
 	out_prefix="synteny"
 	
-    conda run -n syntenitol python3 ${createFiles2Synteny_script} \
+    conda run -n syntenitol python3 "${createFiles2Synteny_script}" \
 	  --evalue ${evalue} \
-	  --input_dir ${genomes_dir} \
-	  --cogs ${cogs_csv} \
-	  --dataframe ${dataframe} \
+	  --input_dir "${genomes_dir}" \
+	  --cogs "${cogs_csv}" \
+	  --dataframe "${dataframe}" \
 	  --out_prefix \${out_prefix} \
-      --protein_to_organism_map_tsv ${protein_to_organism_map} \
+      --protein_to_organism_map_tsv "${protein_to_organism_map}" \
       --out_tsv df_complete.tsv \
       --out_candidates_tsv candidates.tsv \
       --out_best_goi_tsv best_goi.tsv

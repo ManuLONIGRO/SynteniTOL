@@ -11,15 +11,15 @@ process generate_itol_files {
     """
     extra=""
     if [ -n "${color_by_group}" ]; then
-      extra="--color_by_group ${color_by_group}"
+      extra="--color_by_group \"${color_by_group}\""
     fi
     
-    conda run -n syntenitol python3 ${syntenyTaxOrg_script} \
-      --cogs ${cogs_csv} \
+    conda run -n syntenitol python3 "${syntenyTaxOrg_script}" \
+      --cogs "${cogs_csv}" \
       \${extra} \
-      --genomic_context_data ${genomic_context_file} \
-      --organism_genes_tsv ${organism_genes_tsv} \
-      --best_goi_tsv ${best_goi_tsv} \
+      --genomic_context_data "${genomic_context_file}" \
+      --organism_genes_tsv "${organism_genes_tsv}" \
+      --best_goi_tsv "${best_goi_tsv}" \
       --itol_synteny_file itol_synteny_oriented.txt \
       --synteny_log synteny.log \
       --itol_profiling_file itol_binary.txt

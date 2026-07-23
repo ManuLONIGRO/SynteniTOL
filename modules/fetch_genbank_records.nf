@@ -18,8 +18,8 @@ process fetch_genbank_records {
 
     conda run -n syntenitol efetch \
         -db nuccore \
-        -id ${no_assembly_acc} \
+        -id "${no_assembly_acc}" \
         -format gb \
-        > gbff_no_assemblies/${no_assembly_acc}.gbff
+        > "gbff_no_assemblies/${no_assembly_acc}.gbff"
     """
 }

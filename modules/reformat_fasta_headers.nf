@@ -6,9 +6,9 @@ process reformat_fasta_headers {
     path "formatted_headers.fasta"
     script:
     """
-    conda run -n syntenitol python3 ${new_formatHeaders_script} \
-        --input_fasta ${inputFASTA} \
-        --genomes_dir ${genomes_dir} \
+    conda run -n syntenitol python3 "${new_formatHeaders_script}" \
+        --input_fasta "${inputFASTA}" \
+        --genomes_dir "${genomes_dir}" \
         --output_fasta formatted_headers.fasta
     """
 }
