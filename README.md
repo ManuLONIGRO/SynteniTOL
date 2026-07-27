@@ -23,6 +23,8 @@ A Nextflow DSL 2 pipeline for synteny analysis of protein sequences against geno
 
 SynteniToL enables researchers to perform comparative micro-synteny analysis across multiple prokaryotic genomes by detecting homologous proteins (using COG profiles) and generating publication-ready visualizations for iTOL.
 
+![Pipeline](images/syntenitol.png)
+
 **Key features:**
 
 - Automated retrieval of genome annotations from NCBI
