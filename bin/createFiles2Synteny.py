@@ -138,8 +138,8 @@ def best_hit_per_organism_by_prefix(
     candidates["is_good_accuracy"] = candidates["acc"] >= acc_threshold
 
     sorted_candidates = candidates.sort_values(
-        by=["organism", "is_high_confidence", "is_good_accuracy", "centrality_score", "window_count_total", "evalue", "locus_num"],
-        ascending=[True, False, False, True, False, True, True]
+        by=["organism", "is_high_confidence", "is_good_accuracy", "centrality_score", "window_count_total", "evalue", "locus_num", "locus_tag"],
+        ascending=[True, False, False, True, False, True, True, True]
     )
 
     # 5) Choose the best one per organism

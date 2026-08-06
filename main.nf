@@ -202,7 +202,7 @@ workflow {
         log.info "${YELLOW}Skipping taxonomy steps (get_taxonomy_info, taxonomy_itol_files) due to --no_taxonomy${RESET}"
     }
 
-    // Download assemblies to download in batches of 50 genomes to not overload NCBI servers
+    // Download assemblies to download in batches of 20 genomes to not overload NCBI servers
     efetch_results.assemblies_to_download
         .ifEmpty { error "Assemblies file not found." }
         .splitText()
@@ -210,7 +210,7 @@ workflow {
         .filter { v -> v.trim() }
         .toSortedList()
         .flatten()
-        .collate(50)
+        .collate(20)
         .set { accession_batches }
 
     download_assemblies_results     = download_assemblies(accession_batches)
