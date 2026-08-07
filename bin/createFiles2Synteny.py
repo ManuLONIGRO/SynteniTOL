@@ -133,14 +133,19 @@ def best_hit_per_organism_by_prefix(
 
     candidates["window_count_total"] = density_counts
     candidates["centrality_score"] = centrality_scores
+    candidates["centrality_sort_key"] = candidates["centrality_score"].where(
+        candidates["centrality_score"] != 0,
+        float("inf")
+    )
 
     # 4) identify good accuracy hits
     candidates["is_good_accuracy"] = candidates["acc"] >= acc_threshold
 
     sorted_candidates = candidates.sort_values(
-        by=["organism", "is_high_confidence", "is_good_accuracy", "centrality_score", "window_count_total", "evalue", "locus_num", "locus_tag"],
+        by=["organism", "is_high_confidence", "is_good_accuracy", "centrality_sort_key", "window_count_total", "evalue", "locus_num", "locus_tag"],
         ascending=[True, False, False, True, False, True, True, True]
     )
+    sorted_candidates = sorted_candidates.drop(columns=["centrality_sort_key"])
 
     # 5) Choose the best one per organism
     best = sorted_candidates.groupby("organism", as_index=False).head(1).reset_index(drop=True)
