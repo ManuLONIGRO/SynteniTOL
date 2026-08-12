@@ -58,15 +58,36 @@ def parse_cogs(cogs_str: str) -> List[str]:
         return []
     return [c.strip() for c in cogs_str.split(',') if c.strip()]
 
+# gene_list: List[str] = []
+# if args.gene_list:
+#     gene_list = list(args.gene_list)
+# if not gene_list and args.cogs:
+#     gene_list = parse_cogs(args.cogs)
+# if not gene_list:
+#     raise SystemExit("You must provide --gene_list or --cogs")
+
+# cog_of_interest = gene_list[0]
 gene_list: List[str] = []
 if args.gene_list:
-    gene_list = list(args.gene_list)
+    gene_list = [name.strip() for name in args.gene_list if str(name).strip()]
 if not gene_list and args.cogs:
     gene_list = parse_cogs(args.cogs)
 if not gene_list:
     raise SystemExit("You must provide --gene_list or --cogs")
 
+available_profiles = sorted(df_filtered["gene"].dropna().astype(str).str.strip().unique().tolist())
+missing_profiles = [name for name in gene_list if name not in set(available_profiles)]
+if missing_profiles:
+    preview = ", ".join(available_profiles[:20])
+    suffix = " ..." if len(available_profiles) > 20 else ""
+    raise SystemExit(
+        "Requested profile name(s) not found in the dataframe: "
+        f"{', '.join(missing_profiles)}. "
+        f"Available profiles: {preview}{suffix}"
+    )
+
 cog_of_interest = gene_list[0]
+
 #---------------------------------------------------------------------------------------------------------------------------
 # Select the best hit per organism for the cog_of_interest NEW LINES
 df_cog= df_filtered[
@@ -78,7 +99,7 @@ def best_hit_per_organism_by_prefix(
     df,
     cog_of_interest=cog_of_interest,
     gene_list=None,
-    window=300,
+    window=200,
     locus_col="locus_tag",
     cog_col="gene",
     evalue_threshold=1e-60,
@@ -138,12 +159,16 @@ def best_hit_per_organism_by_prefix(
         float("inf")
     )
 
+    # add a column to indicate if the case pass a threshold of length of gene_list. The threshold is the 50% of the len(gene_list)
+    candidates["is_high_density"] = candidates["window_count_total"] >= (len(gene_list) * 0.5)
+
+
     # 4) identify good accuracy hits
     candidates["is_good_accuracy"] = candidates["acc"] >= acc_threshold
 
     sorted_candidates = candidates.sort_values(
-        by=["organism", "is_high_confidence", "is_good_accuracy", "centrality_sort_key", "window_count_total", "evalue", "locus_num", "locus_tag"],
-        ascending=[True, False, False, True, False, True, True, True]
+        by=["organism", "is_high_confidence", "is_good_accuracy", "is_high_density", "centrality_sort_key", "window_count_total", "evalue", "locus_num", "locus_tag"],
+        ascending=[True, False, False, False, True, False, True, True, True]
     )
     sorted_candidates = sorted_candidates.drop(columns=["centrality_sort_key"])
 
