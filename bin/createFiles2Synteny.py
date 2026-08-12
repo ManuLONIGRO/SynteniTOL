@@ -99,7 +99,7 @@ def best_hit_per_organism_by_prefix(
     df,
     cog_of_interest=cog_of_interest,
     gene_list=None,
-    window=200,
+    window=70,
     locus_col="locus_tag",
     cog_col="gene",
     evalue_threshold=1e-60,
@@ -164,11 +164,12 @@ def best_hit_per_organism_by_prefix(
 
 
     # 4) identify good accuracy hits
-    candidates["is_good_accuracy"] = candidates["acc"] >= acc_threshold
+    # candidates["is_good_accuracy"] = candidates["acc"] >= acc_threshold
 
     sorted_candidates = candidates.sort_values(
-        by=["organism", "is_high_confidence", "is_good_accuracy", "is_high_density", "centrality_sort_key", "window_count_total", "evalue", "locus_num", "locus_tag"],
-        ascending=[True, False, False, False, True, False, True, True, True]
+        # by=["organism", "is_high_confidence", "is_good_accuracy", "is_high_density", "centrality_sort_key", "window_count_total", "evalue", "locus_num", "locus_tag"],
+        by=["organism", "is_high_confidence", "is_high_density", "centrality_sort_key", "window_count_total", "evalue", "locus_num", "locus_tag"],
+        ascending=[True, False, False, True, False, True, True, True]
     )
     sorted_candidates = sorted_candidates.drop(columns=["centrality_sort_key"])
 
@@ -181,8 +182,7 @@ def best_hit_per_organism_by_prefix(
 best_goi_dataframe, candidates_dataframe = best_hit_per_organism_by_prefix(
     df_filtered, 
     cog_of_interest, 
-    gene_list=gene_list, # Passes the whole list for density/centrality
-    window=300
+    gene_list=gene_list # Passes the whole list for density/centrality
 )
 
 #output candidates in a new tsv
