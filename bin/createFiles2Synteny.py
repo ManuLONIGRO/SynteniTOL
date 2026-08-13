@@ -78,13 +78,14 @@ if not gene_list:
 available_profiles = sorted(df_filtered["gene"].dropna().astype(str).str.strip().unique().tolist())
 missing_profiles = [name for name in gene_list if name not in set(available_profiles)]
 if missing_profiles:
-    preview = ", ".join(available_profiles[:20])
-    suffix = " ..." if len(available_profiles) > 20 else ""
-    raise SystemExit(
-        "Requested profile name(s) not found in the dataframe: "
+    print(
+        "WARNING: Requested profile name(s) with no hits (all negative results) "
+        "in the dataframe, they will be skipped: "
         f"{', '.join(missing_profiles)}. "
-        f"Available profiles: {preview}{suffix}"
+        f"Profiles with positive hits: {', '.join(available_profiles)}"
     )
+    with open("missing_profiles.txt", "w") as fh:
+        fh.write("\n".join(missing_profiles) + "\n")
 
 cog_of_interest = gene_list[0]
 

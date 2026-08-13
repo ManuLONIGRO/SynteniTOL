@@ -311,6 +311,15 @@ workflow {
     best_goi_tsv_ch             = synteny_results.best_goi_tsv
     binary_presence_ch          = synteny_results.binary_presence
 
+    // Warn in the terminal about requested profiles (COGs/custom HMMs) with no
+    // hits in any organism (all negative results). The process continues; the
+    // affected profiles are skipped in the downstream analysis.
+    synteny_results.missing_profiles.view { f ->
+        f.readLines().findAll { it.trim() }.each { profile ->
+            log.warn "Requested profile ${profile} has no hits (all negative results) in any organism. It will be skipped."
+        }
+    }
+
 
     // Build iTOL files
     color_group_opt             = params.color_by_group ?: ""

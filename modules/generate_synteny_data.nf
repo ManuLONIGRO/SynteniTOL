@@ -13,6 +13,7 @@ process generate_synteny_data {
         path "candidates.tsv", emit: candidates_tsv
         path "best_goi.tsv", emit: best_goi_tsv
         path "*_gene_presence_per_organism_*", emit: binary_presence
+        path "missing_profiles.txt", emit: missing_profiles, optional: true
 
 	script:
 	"""
