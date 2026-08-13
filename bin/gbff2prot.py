@@ -5,7 +5,7 @@ Created on Wed May 28 09:33:15 2025
 
 UPDATED TO NEXTFLOW
 
-Creates the proteome file (.prot) of the .gbff
+Creates the proteome file (.faa) of the .gbff
 
 @author: mlonigro
 """
@@ -17,7 +17,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--genomes_dir", required=True, help="Path to the directory containing .gbff files")
-parser.add_argument("--proteomes_dir", required=True, help="Path to the output directory for .prot files")
+parser.add_argument("--proteomes_dir", required=True, help="Path to the output directory for .faa files")
 args = parser.parse_args()
 
 input_dir = args.genomes_dir
@@ -26,7 +26,7 @@ output_dir = args.proteomes_dir
 os.makedirs(output_dir, exist_ok=True)  # The dir exists or is created
 def procesar_gbff(filename):
     input_file = os.path.join(input_dir, filename)
-    output_file = os.path.join(output_dir, filename.replace(".gbff", ".prot"))
+    output_file = os.path.join(output_dir, filename.replace(".gbff", ".faa"))
 
     # If it already exists, skip
     if os.path.exists(output_file):

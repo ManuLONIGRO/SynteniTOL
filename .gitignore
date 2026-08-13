@@ -27,7 +27,7 @@ mappings/
 *.fa
 *.fa.gz
 *.hmm
-*.prot
+*.faa
 *.result
 *.map
 *_oriented

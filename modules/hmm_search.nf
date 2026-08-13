@@ -11,8 +11,8 @@ process hmm_search {
     """
     profile_name="${cog}"
     
-    for proteome in "${proteomes_dir}"/*.prot; do
-        proteome_name=\$(basename "\$proteome" .prot)
+    for proteome in "${proteomes_dir}"/*.faa; do
+        proteome_name=\$(basename "\$proteome" .faa)
         hmmsearch -E ${evalue} --acc --domtblout "\${proteome_name}_\${profile_name}.result" "${profile}" "\${proteome}"
     done
     """
