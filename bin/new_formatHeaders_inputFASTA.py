@@ -13,6 +13,7 @@ import argparse
 import pandas as pd
 import os
 from Bio import SeqIO
+import re
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input_fasta", type=str, required=True, help="Input FASTA file path")
@@ -29,7 +30,10 @@ protein_ids = []
 with open(input_fasta, "r") as infile:
     for line in infile:
         if line.startswith(">"):
-            protein_id = line.split(':')[0].strip().replace(">","")
+            # protein_id = line.split(':')[0].strip().replace(">","")
+            header = line[1:].strip()
+            match = re.match(r"^([^:\s]+):\d+-\d+(?:\s|$)", header)
+            protein_id = match.group(1) if match else header.split(None,1)[0]  # Fallback to first word if regex fails
             protein_ids.append(protein_id)
 
 # Read gbff looking for taxid, species_name, isolate for each protein_id in protein_ids list
@@ -69,7 +73,11 @@ header_count = {}
 with open(input_fasta, "r") as infile, open(output_fasta, "w") as outfile:
     for line in infile:
         if line.startswith(">"):
-            protein_id = line.split(':')[0].strip().replace(">","")
+            # protein_id = line.split(':')[0].strip().replace(">","")
+            header = line[1:].strip()
+            match = re.match(r"^([^:\s]+):\d+-\d+(?:\s|$)", header)
+            protein_id = match.group(1) if match else header.split(None,1)[0]  # Fallback to first word if regex fails
+            
             if protein_id in protein_id_to_info:
                 info = protein_id_to_info[protein_id]
                 taxid = info.get("taxid", "")

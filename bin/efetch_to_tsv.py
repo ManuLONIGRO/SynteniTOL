@@ -14,6 +14,7 @@ import subprocess
 import csv
 # import time
 import os
+import re
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--fasta",required=True, help="Path to input FASTA file")
@@ -37,7 +38,11 @@ protein_id_list = []
 with open(fasta_path) as fasta:
     for line in fasta:
         if line.startswith(">"):
-            protein_id = line.split(":")[0].replace(">", "").strip()
+            # protein_id = line.split(":")[0].replace(">", "").strip()
+            # Use regex to extract protein ID from the header match = re.match(r"^([^:\s]+):\d+-\d+(?:\s|$)", header)
+            header = line[1:].strip()
+            match = re.match(r"^([^:\s]+):\d+-\d+(?:\s|$)", header)
+            protein_id = match.group(1) if match else header.split(None,1)[0]  # Fallback to first word if regex fails
             protein_id_list.append(protein_id)
 
 # Convert list to format suitable for efetch
