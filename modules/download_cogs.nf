@@ -3,6 +3,8 @@ process download_cogs {
     maxForks 2
     label 'retry_backoff'
 
+    secret 'NCBI_API_KEY'
+
     input:
     val cog
     output:

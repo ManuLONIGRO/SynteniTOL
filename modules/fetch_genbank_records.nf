@@ -4,6 +4,8 @@ process fetch_genbank_records {
     label 'retry_backoff'
     tag "no_assembly_${task.hash.take(8)}" // tag to identify batches in logs
 
+    secret 'NCBI_API_KEY'
+
     input:
         val no_assembly_acc
     output:

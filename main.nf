@@ -111,9 +111,9 @@ workflow {
         error "The input file ${params.inputFASTA} doesn't exist."
     }
 
-    def ncbiApiKeyConfigured = (System.getenv('NCBI_API_KEY') ?: '') != ''
-    try { ncbiApiKeyConfigured = ncbiApiKeyConfigured || (secrets.NCBI_API_KEY ?: '') != '' } catch (Exception e) { /* secret not set for this project */ }
-    if (!ncbiApiKeyConfigured) {log.warn "${YELLOW}Warning: No NCBI API key found. You may encounter rate limits when fetching data from NCBI. Provide it with 'nextflow secrets set NCBI_API_KEY <key>' or by exporting the NCBI_API_KEY environment variable.${RESET}"}
+    // def ncbiApiKeyConfigured = (System.getenv('NCBI_API_KEY') ?: '') != ''
+    // try { ncbiApiKeyConfigured = ncbiApiKeyConfigured || (secrets.NCBI_API_KEY ?: '') != '' } catch (Exception e) { /* secret not set for this project */ }
+    // if (!ncbiApiKeyConfigured) {log.warn "${YELLOW}Warning: No NCBI API key found. You may encounter rate limits when fetching data from NCBI. Provide it with 'nextflow secrets set NCBI_API_KEY <key>' or by exporting the NCBI_API_KEY environment variable.${RESET}"}
 
     // Get the name of the input file without the extension for the tree name file.
     def base_name = java.nio.file.Paths.get(params.inputFASTA.toString()).fileName.toString().replaceFirst(/\.[^.]+$/, '')

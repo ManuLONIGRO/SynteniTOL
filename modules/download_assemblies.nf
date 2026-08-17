@@ -3,6 +3,8 @@ process download_assemblies {
     label 'retry_backoff'
     tag "batch_${task.hash.take(8)}" // tag to identify batches in logs
 
+    secret 'NCBI_API_KEY'
+
     input:
     val accession_list
     output:
