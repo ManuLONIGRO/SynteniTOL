@@ -11,10 +11,6 @@ process download_assemblies {
     script:
     
     """
-    if [ -n "${params.ncbi_api_key}" ]; then
-        NCBI_API_KEY="${params.ncbi_api_key}"
-    fi
-
     mkdir gbff_assemblies
     printf "%s\n" "${accession_list.join('\n')}" > batch_ids.txt
     rm -f assemblies.zip

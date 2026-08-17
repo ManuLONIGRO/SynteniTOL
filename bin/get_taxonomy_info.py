@@ -18,16 +18,14 @@ import os
 parser = argparse.ArgumentParser()
 parser.add_argument("--input_all_accessions_list", required=True, help="Path to input assemblies file")
 parser.add_argument("--output_taxonomy_tsv", required=True, help="Path to output taxonomy TSV file")
-parser.add_argument("--ncbi_api_key", required=False, help="NCBI API key to increase request limits")
 args = parser.parse_args()
 
 print(f"START GETTING TAXONOMY INFO using {args.input_all_accessions_list}")
 
-# Use NCBI API KEY if provided
-user_ncbi_api_key = False
-if args.ncbi_api_key:
-    os.environ["NCBI_API_KEY"] = args.ncbi_api_key
-    user_ncbi_api_key = True
+# The NCBI API key is injected into the process environment by Nextflow
+# (NCBI_API_KEY env var / secret), never passed via the command line.
+# Use the API key if present (shorter sleep) to avoid overloading NCBI servers.
+user_ncbi_api_key = bool(os.environ.get("NCBI_API_KEY"))
 
 # Create output taxonomy file
 with open(args.output_taxonomy_tsv, "a") as tax_file:

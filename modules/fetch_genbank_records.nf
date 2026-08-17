@@ -10,10 +10,6 @@ process fetch_genbank_records {
         path "gbff_no_assemblies/*.gbff", emit: gbff_no_assembly_file
     script:
     """
-    if [ -n "${params.ncbi_api_key}" ]; then
-        NCBI_API_KEY="${params.ncbi_api_key}"
-    fi
-
     mkdir -p gbff_no_assemblies
 
     conda run -n syntenitol efetch \

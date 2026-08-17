@@ -112,11 +112,24 @@ nextflow run main.nf [OPTIONS]
 |-------------------------|------------------------------------------------------------------------------------------------|
 | `--custom_hmm_profiles` | Comma-separated paths to custom HMM profiles (e.g., `profile_x.hmm,profile_y.hmm`). Each path must appear only once, and each resolved profile name must be unique (names are taken from the filename, without `.hmm` and an optional `profile_` prefix). |
 | `--query_profile`       | Profile label used as reference for synteny plots instead of the first COG (must match a COG or custom profile name) |
-| `--ncbi_api_key`        | NCBI API key to increase rate limits (recommended for large queries)                           |
 | `--color_by_group`      | Group COGs for coloring in iTOL (format: `COG1229-COG1029,COG2218`)                             |
 | `--no_taxonomy`         | Skip NCBI taxonomy lookup and taxonomic iTOL layers (domain/phylum/class)                      |
 | `--outdir`              | Output directory for results                                                                   |
 | `--help`                | Display help message                                                                           |
+
+### NCBI API key (optional)
+
+To increase NCBI rate limits, provide your NCBI API key **without passing it on the command line** (doing so would leak it into the execution report, `run_command.txt`, the Nextflow logs and the process scripts). Instead, use one of the two supported methods:
+
+```bash
+# Option 1 (recommended): store it as a Nextflow secret
+nextflow secrets set NCBI_API_KEY "your_ncbi_api_key"
+
+# Option 2: export it in your shell before launching
+export NCBI_API_KEY="your_ncbi_api_key"
+```
+
+If no key is provided the pipeline still works, just with public NCBI rate limits (a slower sleep is used between taxonomy queries).
 
 ### Input validation
 
@@ -129,14 +142,14 @@ COG identifiers must also match the format `COGXXXX` with `XXXX` from `0001` to 
 
 ### Examples
 
-**Basic usage with NCBI API key:**
+**Basic usage:**
 
 ```bash
+export NCBI_API_KEY="your_ncbi_api_key"   # optional: set via `nextflow secrets set NCBI_API_KEY "..."` instead
 nextflow run main.nf \
     -profile docker \
     --inputFASTA proteins.faa \
-    --cogs COG1152,COG1795,COG2218 \
-    --ncbi_api_key your_ncbi_api_key
+    --cogs COG1152,COG1795,COG2218
 ```
 
 **With group coloring (COG1229 and COG1029 share the same color):**

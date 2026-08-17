@@ -11,10 +11,6 @@ process download_cogs {
 
     script:
     """
-    if [ -n "${params.ncbi_api_key}" ]; then
-        NCBI_API_KEY="${params.ncbi_api_key}"
-    fi
-
     set -euo pipefail
     mkdir -p cogs
 

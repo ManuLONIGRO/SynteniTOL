@@ -42,7 +42,6 @@ workflow {
         'cogs',
         'custom_hmm_profiles',
         'query_profile',
-        'ncbi_api_key',
         'color_by_group',
         'no_taxonomy',
         'base_name',
@@ -58,9 +57,11 @@ workflow {
     }
 
     // Create a command.txt with workflow.commandline in the output directory for reproducibility
+    // Redact any potential secret that may land on the command line.
     def runDir = file(params.outdir ?: "results/run_${params.run_id}")
     runDir.mkdirs()
-    file("${params.outdir}/run_command.txt").text = workflow.commandLine + '\n'
+    def sanitizedCommandLine = workflow.commandLine.replaceAll(/--\S*api[\-_]?key\s+\S+/, '<redacted>')
+    file("${params.outdir}/run_command.txt").text = sanitizedCommandLine + '\n'
 
     // Define colors for the messages
     def RED     = "\u001B[31m"
@@ -86,8 +87,14 @@ workflow {
         --no_taxonomy      Skip NCBI taxonomy lookup and taxonomic iTOL files (domain/phylum/class)
         --evalue           E-value threshold used in search/filtering steps (default: 1e-10)
         --outdir           Output directory (default: results/run_<timestamp>)
-        --ncbi_api_key     NCBI API key to increase rate limits (optional but recommended)
         --help             Show this help message and exit
+
+        NCBI API key (optional but recommended to increase rate limits):
+        Set the NCBI_API_KEY secret or environment variable before running, e.g.:
+            nextflow secrets set NCBI_API_KEY <your_key>
+        or:
+            export NCBI_API_KEY=<your_key>
+        The key is never passed via the command line to avoid leaking it into reports or logs.
         """
         exit 0
     }
@@ -104,7 +111,9 @@ workflow {
         error "The input file ${params.inputFASTA} doesn't exist."
     }
 
-    if (!params.ncbi_api_key) {log.warn "${YELLOW}Warning: No NCBI API key provided. You may encounter rate limits when fetching data from NCBI.${RESET}"}
+    def ncbiApiKeyConfigured = (System.getenv('NCBI_API_KEY') ?: '') != ''
+    try { ncbiApiKeyConfigured = ncbiApiKeyConfigured || (secrets.NCBI_API_KEY ?: '') != '' } catch (Exception e) { /* secret not set for this project */ }
+    if (!ncbiApiKeyConfigured) {log.warn "${YELLOW}Warning: No NCBI API key found. You may encounter rate limits when fetching data from NCBI. Provide it with 'nextflow secrets set NCBI_API_KEY <key>' or by exporting the NCBI_API_KEY environment variable.${RESET}"}
 
     // Get the name of the input file without the extension for the tree name file.
     def base_name = java.nio.file.Paths.get(params.inputFASTA.toString()).fileName.toString().replaceFirst(/\.[^.]+$/, '')
