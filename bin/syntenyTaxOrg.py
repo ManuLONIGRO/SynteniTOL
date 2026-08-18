@@ -15,9 +15,10 @@ Header format expected in data files: taxid|species_name|isolate|n_repetitions
 
 import ast
 import argparse
-import colorsys
 from typing import Dict, List, Tuple
 import pandas as pd
+
+from color_palettes import categorical_colors
 
 
 def parse_args():
@@ -55,18 +56,6 @@ def parse_color_groups(spec: str) -> Dict[str, List[str]]:
     return groups
 
 
-def evenly_spaced_colors(n: int) -> List[str]:
-    # High-contrast colors via evenly spaced hues
-    colors: List[str] = []
-    for i in range(n):
-        h = (i / max(1, n)) % 1.0
-        s = 0.95
-        l = 0.55
-        r, g, b = colorsys.hls_to_rgb(h, l, s)
-        colors.append(f"#{int(r*255):02X}{int(g*255):02X}{int(b*255):02X}")
-    return colors
-
-
 def assign_colors(genes: List[str], color_groups: Dict[str, List[str]]) -> Tuple[Dict[str, str], List[str]]:
     # Create keys for coloring: group tokens or individual genes
     keys: List[str] = []
@@ -80,7 +69,7 @@ def assign_colors(genes: List[str], color_groups: Dict[str, List[str]]) -> Tuple
         if g not in member_to_group and g not in keys:
             keys.append(g)
     # Generate palette
-    palette = evenly_spaced_colors(len(keys))
+    palette = categorical_colors(len(keys))
     key_to_color = {k: palette[i] for i, k in enumerate(keys)}
     # Map each gene to a color via its group (if present) else itself
     gene_to_color = {g: key_to_color.get(member_to_group.get(g, g), "#000000") for g in genes}

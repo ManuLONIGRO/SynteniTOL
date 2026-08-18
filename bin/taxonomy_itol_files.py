@@ -10,10 +10,11 @@ UPDATED for NEXTFLOW 22/10/2026
 @author: mlonigro
 """
 
-import colorsys
 from collections import defaultdict
 import pandas as pd
 import argparse
+
+from color_palettes import categorical_colors
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--taxonomy_tsv", required=True, help="Path to taxonomy.tsv file")
@@ -112,21 +113,9 @@ for species, phylum in dic_phylum.items():
 unique_values_phylum_sinAsgard = list(set(dic_phylum.values()))
 
 
-def evenly_spaced_colors(n):
-    """High-contrast rainbow palette (same as bin/syntenyTaxOrg.py for COGs)."""
-    colors = []
-    for i in range(n):
-        h = (i / max(1, n)) % 1.0
-        s = 0.95
-        l = 0.55
-        r, g, b = colorsys.hls_to_rgb(h, l, s)
-        colors.append(f"#{int(r * 255):02X}{int(g * 255):02X}{int(b * 255):02X}")
-    return colors
-
-
 def labels_and_colors(unique_values):
     labels = sorted(unique_values)
-    colors = evenly_spaced_colors(len(labels))
+    colors = categorical_colors(len(labels))
     return labels, colors, dict(zip(labels, colors))
 
 
