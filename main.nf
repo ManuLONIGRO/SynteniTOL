@@ -42,6 +42,7 @@ workflow {
         'cogs',
         'custom_hmm_profiles',
         'query_profile',
+        'gene_order',
         'color_by_group',
         'no_taxonomy',
         'base_name',
@@ -83,6 +84,7 @@ workflow {
         --cogs             Comma-separated list of COGs (e.g., COG1152,COG1795) (mandatory)
         --custom_hmm_profiles Optional comma-separated list of custom HMM profile paths (each path and profile name must be unique)
         --query_profile    Optional profile label to use as reference for inputFASTA (must exist in COGs/custom profiles)
+        --gene_order       Optional comma-separated list defining the column order of itol_binary.txt. Genes must exist in --cogs/--custom_hmm_profiles; missing genes are appended in CLI order (warning printed)
         --color_by_group   Optional parameter to color by group in iTOL files. (e.g. COG1229-COG1029,COG2218,COG2037 COG1229 and COG1029 will be in the same color) 
         --no_taxonomy      Skip NCBI taxonomy lookup and taxonomic iTOL files (domain/phylum/class)
         --evalue           E-value threshold used in search/filtering steps (default: 1e-10)
@@ -171,6 +173,36 @@ workflow {
         .collect { cog, count -> "${cog} (×${count})" }
     if (duplicate_cogs) {
         error "${RED}Duplicate COG identifiers in --cogs: ${duplicate_cogs.join(', ')}. Each COG must appear only once.${RESET}"
+    }
+
+    // All gene labels requested via --cogs and --custom_hmm_profiles, in CLI order.
+    def all_gene_labels = cogs_list + custom_profile_names
+
+    // Optional --gene_order: defines the column order of itol_binary.txt.
+    // Every gene must exist in --cogs/--custom_hmm_profiles; genes missing from
+    // the list are appended at the end in CLI order (warning only, run continues).
+    def gene_order_list = (params.gene_order ?: '')
+        .tokenize(',')
+        .collect { v -> v.trim() }
+        .findAll { v -> v }
+    if (gene_order_list) {
+        def duplicate_gene_order = gene_order_list
+            .countBy { gene -> gene }
+            .findAll { gene, count -> count > 1 }
+            .collect { gene, count -> "${gene} (×${count})" }
+        if (duplicate_gene_order) {
+            error "${RED}Duplicate identifiers in --gene_order: ${duplicate_gene_order.join(', ')}. Each gene must appear only once.${RESET}"
+        }
+
+        def unknown_gene_order = gene_order_list.findAll { gene -> !(gene in all_gene_labels) }
+        if (unknown_gene_order) {
+            error "${RED}Invalid identifiers in --gene_order: ${unknown_gene_order.join(', ')}. Genes must be present in --cogs or --custom_hmm_profiles.${RESET}"
+        }
+
+        def missing_in_gene_order = all_gene_labels.findAll { gene -> !(gene in gene_order_list) }.unique()
+        if (missing_in_gene_order) {
+            log.warn "${YELLOW}Warning: the following genes from --cogs/--custom_hmm_profiles are missing in --gene_order: ${missing_in_gene_order.join(', ')}. They will be appended at the end of itol_binary.txt in CLI order.${RESET}"
+        }
     }
 
 
@@ -295,7 +327,6 @@ workflow {
                                 ).dataframe_tsv
 
 
-    all_gene_labels             = cogs_list + custom_profile_names
     def query_profile = params.query_profile?.toString()?.trim()
     if (query_profile) {
         if (!(query_profile in all_gene_labels)) {
@@ -306,6 +337,8 @@ workflow {
     }
     ordered_gene_labels         = [query_profile] + all_gene_labels.findAll { gene -> gene != query_profile }
     cogs_csv                    = ordered_gene_labels.join(',')
+    binary_gene_labels          = gene_order_list ? gene_order_list + all_gene_labels.findAll { gene -> !(gene in gene_order_list) } : ordered_gene_labels
+    binary_genes_csv            = binary_gene_labels.join(',')
     synteny_results             = generate_synteny_data(
                                     channel.value(cogs_csv)
                                         .combine(all_genomes_dir)
@@ -333,7 +366,8 @@ workflow {
     // Build iTOL files
     color_group_opt             = params.color_by_group ?: ""
     _itol_outputs                = generate_itol_files(
-                                    channel.value(cogs_csv)
+                                    channel.value(binary_genes_csv)
+                                        .combine(channel.value(query_profile))
                                         .combine(channel.value(color_group_opt))
                                         .combine(synteny_context_data)
                                         .combine(binary_presence_ch)

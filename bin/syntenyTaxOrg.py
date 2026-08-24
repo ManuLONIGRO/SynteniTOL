@@ -27,6 +27,7 @@ def parse_args():
     # Either pass gene names directly or COG list; at least one must be provided
     parser.add_argument("--gene_list", type=str, nargs='*', default=None, help="List of genes/COGs of interest (space-separated)")
     parser.add_argument("--cogs", type=str, default=None, help="Comma-separated COG list, e.g., COG1152,COG1795")
+    parser.add_argument("--reference_gene", type=str, default=None, help="Gene used as synteny reference in labels/logs (defaults to first gene of the list)")
     parser.add_argument("--color_by_group", type=str, default=None, help="Comma-separated groups; hyphen joins members, e.g. COG1152-COG1229,COG1795")
     parser.add_argument("--genomic_context_data", type=str, required=True, help="Path to genomic context data file")
     parser.add_argument("--itol_synteny_file", type=str, required=True, help="Output path for itol synteny oriented file")
@@ -93,7 +94,7 @@ if not gene_list and args.cogs:
 if not gene_list:
     raise SystemExit("You must provide --gene_list or --cogs")
 
-gene_of_interest = gene_list[0]
+gene_of_interest = args.reference_gene if args.reference_gene else gene_list[0]
 
 # Parse color grouping
 color_groups = parse_color_groups(args.color_by_group) if args.color_by_group else {}

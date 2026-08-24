@@ -112,6 +112,7 @@ nextflow run main.nf [OPTIONS]
 |-------------------------|------------------------------------------------------------------------------------------------|
 | `--custom_hmm_profiles` | Comma-separated paths to custom HMM profiles (e.g., `profile_x.hmm,profile_y.hmm`). Each path must appear only once, and each resolved profile name must be unique (names are taken from the filename, without `.hmm` and an optional `profile_` prefix). |
 | `--query_profile`       | Profile label used as reference for synteny plots instead of the first COG (must match a COG or custom profile name) |
+| `--gene_order`          | Optional comma-separated list defining the column order of `itol_binary.txt` (e.g., `COG1795,COG1152`). Every gene must exist in `--cogs`/`--custom_hmm_profiles`; genes missing from the list are appended at the end in CLI order and a warning is printed (the run is not stopped). The synteny reference (`--query_profile`) is unaffected. |
 | `--color_by_group`      | Group COGs for coloring in iTOL (format: `COG1229-COG1029,COG2218`)                             |
 | `--no_taxonomy`         | Skip NCBI taxonomy lookup and taxonomic iTOL layers (domain/phylum/class)                      |
 | `--outdir`              | Output directory for results                                                                   |
@@ -137,6 +138,7 @@ Before any process runs, the pipeline checks `--cogs` and `--custom_hmm_profiles
 
 - **`--cogs`**: duplicate COG IDs are rejected (e.g. `COG1152,COG1795,COG1152`).
 - **`--custom_hmm_profiles`**: duplicate file paths are rejected; duplicate profile names resolved from different paths are also rejected (e.g. `dir1/gene1.hmm` and `dir2/gene1.hmm` both map to profile name `gene1`).
+- **`--gene_order`**: duplicates within the list are rejected, and any gene not present in `--cogs`/`--custom_hmm_profiles` is rejected (e.g. `--gene_order COG1152,COG9999`). Genes from `--cogs`/`--custom_hmm_profiles` missing in `--gene_order` only trigger a warning; they are appended at the end of `itol_binary.txt` in CLI order.
 
 COG identifiers must also match the format `COGXXXX` with `XXXX` from `0001` to `5950`; invalid IDs are rejected at startup.
 
