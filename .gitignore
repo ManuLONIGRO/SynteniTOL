@@ -13,7 +13,19 @@ flowchart.dot
 flowchart.png
 trace.txt
 
+# Codigo
+
+analysis/
+other_scripts/
+dataframe_domains.py
+low_resources.config
+small_example.tsv
+
 # Outputs and large data
+saved_results/
+project/
+organismos_binario*
+commit.txt
 custom_hmm_profiles/
 fwda_full_tree/
 results*/
