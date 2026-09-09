@@ -5,7 +5,7 @@ Created on Fri May 23 10:51:44 2025
 
 Updated for NEXTFLOW
 
-- Reads synteny inputs produced by createFiles2Synteny.py and organism gene presence from itol_binary.py
+- Reads synteny inputs produced by createFiles2Synteny.py and organism gene presence from itol_profiling.py
 - Dynamic gene list from --cogs (comma-separated) or --gene_list
 - Optional --color_by_group: e.g. COG1152-COG1229,COG1795 groups colors by token
 - Generates contrasting colors automatically
@@ -32,8 +32,8 @@ def parse_args():
     parser.add_argument("--genomic_context_data", type=str, required=True, help="Path to genomic context data file")
     parser.add_argument("--itol_synteny_file", type=str, required=True, help="Output path for itol synteny oriented file")
     parser.add_argument("--synteny_log", type=str, required=True, help="Output path for synteny log file")
-    parser.add_argument("--organism_genes_tsv", type=str, required=True, help="Path to organism gene presence TSV from itol_binary.py")
-    parser.add_argument("--itol_profiling_file", type=str, required=True, help="Output path for itol binary data file")
+    parser.add_argument("--organism_genes_tsv", type=str, required=True, help="Path to organism gene presence TSV from itol_profiling.py")
+    parser.add_argument("--itol_profiling_file", type=str, required=True, help="Output path for itol profiling data file")
     parser.add_argument("--best_goi_tsv", type=str, required=True, help="Path to best GOI per organism TSV file")
     return parser.parse_args()
 

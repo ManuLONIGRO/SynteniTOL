@@ -1,11 +1,11 @@
 process generate_synteny_data_fromProtein {
-    publishDir params.outdir, mode: 'copy', pattern: "itol_synteny_from_protein.txt"
+    publishDir params.outdir, mode: 'copy', pattern: "itol_synteny_fasta.txt"
 
     input:
         tuple val(cogs_csv), path(genomes_dir), path(dataframe), path(createFiles2Synteny_fromProtein_script), val(evalue), path(input_fasta)
 
     output:
-        path "itol_synteny_from_protein.txt", emit: itol_synteny_from_protein
+        path "itol_synteny_fasta.txt", emit: itol_synteny_fasta
 
     script:
     """
@@ -17,6 +17,6 @@ process generate_synteny_data_fromProtein {
       --dataframe "${dataframe}" \
       --cogs "${cogs_csv}" \
       --evalue ${evalue} \
-      --itol_synteny_file itol_synteny_from_protein.txt
+      --itol_synteny_file itol_synteny_fasta.txt
     """
 }

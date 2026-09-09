@@ -85,7 +85,7 @@ workflow {
         --cogs             Comma-separated list of COGs (e.g., COG1152,COG1795) (mandatory)
         --custom_hmm_profiles Optional comma-separated list of custom HMM profile paths (each path and profile name must be unique)
         --query_profile    Optional profile label to use as reference for inputFASTA (must exist in COGs/custom profiles)
-        --gene_order       Optional comma-separated list defining the column order of itol_binary.txt. Genes must exist in --cogs/--custom_hmm_profiles; missing genes are appended in CLI order (warning printed)
+        --gene_order       Optional comma-separated list defining the column order of itol_profiling.txt. Genes must exist in --cogs/--custom_hmm_profiles; missing genes are appended in CLI order (warning printed)
         --color_by_group   Optional parameter to color by group in iTOL files. (e.g. COG1229-COG1029,COG2218,COG2037 COG1229 and COG1029 will be in the same color) 
         --no_taxonomy      Skip NCBI taxonomy lookup and taxonomic iTOL files (domain/phylum/class)
         --evalue           E-value threshold used in search/filtering steps (default: 1e-10)
@@ -179,7 +179,7 @@ workflow {
     // All gene labels requested via --cogs and --custom_hmm_profiles, in CLI order.
     def all_gene_labels = cogs_list + custom_profile_names
 
-    // Optional --gene_order: defines the column order of itol_binary.txt.
+    // Optional --gene_order: defines the column order of itol_profiling.txt.
     // Every gene must exist in --cogs/--custom_hmm_profiles; genes missing from
     // the list are appended at the end in CLI order (warning only, run continues).
     def gene_order_list = (params.gene_order ?: '')
@@ -202,7 +202,7 @@ workflow {
 
         def missing_in_gene_order = all_gene_labels.findAll { gene -> !(gene in gene_order_list) }.unique()
         if (missing_in_gene_order) {
-            log.warn "${YELLOW}Warning: the following genes from --cogs/--custom_hmm_profiles are missing in --gene_order: ${missing_in_gene_order.join(', ')}. They will be appended at the end of itol_binary.txt in CLI order.${RESET}"
+            log.warn "${YELLOW}Warning: the following genes from --cogs/--custom_hmm_profiles are missing in --gene_order: ${missing_in_gene_order.join(', ')}. They will be appended at the end of itol_profiling.txt in CLI order.${RESET}"
         }
     }
 
