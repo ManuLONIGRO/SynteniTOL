@@ -175,57 +175,6 @@ nextflow run main.nf \
 
 ---
 
-## Pipeline Overview
-
-```
-┌─────────────┐
-│  Input      │
-│  FASTA      │
-└──────┬──────┘
-       │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  1. Fetch genome metadata from NCBI (efetch_to_tsv)             │
-└─────────────────────────────────────────────────────────────────┘
-       │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  2. Download genome annotations from NCBI Assembly Database     │
-│     - Split into batches of 50 for efficient downloading        │
-│     - Handle missing assemblies gracefully                      │
-└─────────────────────────────────────────────────────────────────┘
-       │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  3. Download COG profiles from NCBI                             │
-└─────────────────────────────────────────────────────────────────┘
-       │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  4. Build HMM profiles from COG multiple sequence alignments    │
-└─────────────────────────────────────────────────────────────────┘
-       │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  5. HMMER search against proteomes                              │
-│     - Scan all genomes for COG domain presence                  │
-│     - Extract locus tags and protein mappings                   │
-└─────────────────────────────────────────────────────────────────┘
-       │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  6. Build results dataframe and extract synteny contexts        │
-│     - First COG in list = reference for synteny plots           │
-│     - Calculate gene neighborhoods and conservation             │
-└─────────────────────────────────────────────────────────────────┘
-       │
-           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  7. Generate iTOL visualization files                           │
-│     - Synteny plots, presence/absence matrices, taxonomy trees  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
 **Pipeline steps in detail:**
 
 1. **NCBI Data Fetching**: Parses input FASTA and retrieves genome metadata from NCBI using E-utilities
