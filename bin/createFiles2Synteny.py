@@ -371,13 +371,12 @@ def context_goi(genes):
     if not goi:
         return genes
     goi_start, goi_end, _ = goi[0], goi[1], goi[2]
-    goi_center = (goi_start + goi_end) // 2
-    goi_context_upstream = goi_center - 100000
-    goi_context_downstream = goi_center + 100000
+    goi_context_upstream = goi_start - 50000
+    goi_context_downstream = goi_end + 50000
     context_genes = []
     for g in genes:
         start, end, strand, name, tag = g
-        if goi_context_upstream < start < goi_context_downstream:
+        if goi_context_upstream <= start <= goi_context_downstream:
             context_genes.append(g)
     context_genes.sort(key=lambda x: x[0])
     return context_genes

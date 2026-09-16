@@ -341,6 +341,7 @@ workflow {
     cogs_csv                    = ordered_gene_labels.join(',')
     binary_gene_labels          = gene_order_list ? gene_order_list + all_gene_labels.findAll { gene -> !(gene in gene_order_list) } : ordered_gene_labels
     binary_genes_csv            = binary_gene_labels.join(',')
+    color_group_opt             = params.color_by_group ?: ""
     synteny_results             = generate_synteny_data(
                                     channel.value(cogs_csv)
                                         .combine(all_genomes_dir)
@@ -355,7 +356,8 @@ workflow {
                                         .combine(map_df)
                                         .combine(createFiles2Synteny_fromProtein_script_ch)
                                         .combine(evalue)
-                                        .combine(fasta_ch))
+                                        .combine(fasta_ch)
+                                        .combine(channel.value(color_group_opt)))
 
 
     synteny_context_data        = synteny_results.synteny_contexts
@@ -374,7 +376,6 @@ workflow {
 
 
     // Build iTOL files
-    color_group_opt             = params.color_by_group ?: ""
     _itol_outputs                = generate_itol_files(
                                     channel.value(binary_genes_csv)
                                         .combine(channel.value(query_profile))

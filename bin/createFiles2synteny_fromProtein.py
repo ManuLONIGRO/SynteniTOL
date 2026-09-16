@@ -14,8 +14,9 @@ which no exact matching CDS is found are skipped with a warning.
 
 import os
 import argparse
-import colorsys
 from typing import Dict, List, Tuple
+
+from color_palettes import categorical_colors
 
 import pandas as pd
 from Bio import SeqIO
@@ -52,6 +53,11 @@ parser.add_argument(
     help="Space-separated gene/COG list for coloring (alternative to --cogs).",
 )
 parser.add_argument(
+    "--color_by_group", type=str, default=None,
+    help="Comma-separated groups; hyphen joins members sharing a color, "
+    "e.g. COG1152-COG1229,COG1795.",
+)
+parser.add_argument(
     "--itol_synteny_file", type=str, required=True,
     help="Output path for iTOL DATASET_ARROWS file.",
 )
@@ -67,15 +73,18 @@ def parse_cogs(cogs_str: str) -> List[str]:
     return [c.strip() for c in cogs_str.split(",") if c.strip()]
 
 
-def evenly_spaced_colors(n: int) -> List[str]:
-    colors: List[str] = []
-    for i in range(n):
-        h = (i / max(1, n)) % 1.0
-        s = 0.95
-        l = 0.55
-        r, g, b = colorsys.hls_to_rgb(h, l, s)
-        colors.append(f"#{int(r * 255):02X}{int(g * 255):02X}{int(b * 255):02X}")
-    return colors
+def parse_color_groups(spec: str) -> Dict[str, List[str]]:
+    groups: Dict[str, List[str]] = {}
+    if not spec:
+        return groups
+    for token in spec.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        members = [p.strip() for p in token.split("-") if p.strip()]
+        if members:
+            groups[token] = members
+    return groups
 
 
 def assign_colors(
@@ -91,7 +100,7 @@ def assign_colors(
     for g in genes:
         if g not in member_to_group and g not in keys:
             keys.append(g)
-    palette = evenly_spaced_colors(len(keys))
+    palette = categorical_colors(len(keys))
     key_to_color = {k: palette[i] for i, k in enumerate(keys)}
     gene_to_color = {
         g: key_to_color.get(member_to_group.get(g, g), "#000000")
@@ -146,8 +155,11 @@ if not gene_list and args.cogs:
     gene_list = parse_cogs(args.cogs)
 
 color_groups: Dict[str, List[str]] = {}
+if args.color_by_group:
+    color_groups = parse_color_groups(args.color_by_group)
 genes_color_dic, _gen_color = assign_colors(gene_list, color_groups)
 print(f"  Gene list for coloring: {gene_list}")
+print(f"  Color groups: {color_groups}")
 
 
 # ---------------------------------------------------------------------------

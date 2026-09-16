@@ -144,38 +144,33 @@ DATA
         genes = item[2]
 
         gene_context = []
-        context_inicio = None
-        context_fin = None
         start_goi = None
 
-        # Find GOI to set context window
+        # Find GOI to set reference position
         for gene in genes:
             start, end, strand, gene_name, locus_tag = gene
             if locus_tag in best_goi_locustags_list:
                 print(f"Found {locus_tag} in {organism_name} as GOI at {start}-{end} (strand {strand})")
                 start_goi = start
-                context_inicio = start - 50000
-                context_fin = end + 50000
                 break
 
         if start_goi is None:
             # No GOI in this organism; skip
             continue
 
-        # Collect genes mapped to window with coloring
+        # Collect genes with coloring (context window already applied upstream)
         for gene in genes:
             start, end, strand, gene_name, locus_tag = gene
             color = genes_color_dic.get(gene_name, "#FFFFFF")
-            if context_inicio <= start <= context_fin:
-                start_reference = start - start_goi + 50000
-                end_reference = end - start_goi + 50000
-                head_arrow = 300 if abs(end_reference - start_reference) > 310 else 200 if abs(end_reference - start_reference) > 210 else 100 if abs(end_reference - start_reference) > 110 else 30  # Short genes get smaller heads avoiding an error in iTOL
-                # iTOL arrow direction is controlled by which side has a non-zero head width:
-                # - head on the LEFT  => arrow points LEFT  (strand -1)
-                # - head on the RIGHT => arrow points RIGHT (strand +1)
-                direction, head_width_left, head_width_right = ("left", head_arrow, "0") if strand == -1 else ("right", "0", head_arrow)
-                gene_entry_context = f"{start_reference}|{end_reference}|{color}|{color}|{gene_name}|#000000|1|0.5|{head_width_left}|{head_width_right}"
-                gene_context.append(gene_entry_context)
+            start_reference = start - start_goi + 50000
+            end_reference = end - start_goi + 50000
+            head_arrow = 300 if abs(end_reference - start_reference) > 310 else 200 if abs(end_reference - start_reference) > 210 else 100 if abs(end_reference - start_reference) > 110 else 30  # Short genes get smaller heads avoiding an error in iTOL
+            # iTOL arrow direction is controlled by which side has a non-zero head width:
+            # - head on the LEFT  => arrow points LEFT  (strand -1)
+            # - head on the RIGHT => arrow points RIGHT (strand +1)
+            direction, head_width_left, head_width_right = ("left", head_arrow, "0") if strand == -1 else ("right", "0", head_arrow)
+            gene_entry_context = f"{start_reference}|{end_reference}|{color}|{color}|{gene_name}|#000000|1|0.5|{head_width_left}|{head_width_right}"
+            gene_context.append(gene_entry_context)
 
         log_file.write(f"Context of {gene_of_interest} of {organism_name}\n{gene_context}\n\n")
         f.write(f"{organism_name},120000,{','.join(gene_context)}\n")
