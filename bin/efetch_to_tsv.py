@@ -61,7 +61,7 @@ for line in result.splitlines():
         parts.append("NA")
     
     row = {
-        #ipg_id=parts[0], COULD BE INTERESTING, ID FOR THE SEQUENCE, CAN BE PRESENT IN SEVERAL EQUAL SEQUENCES OR ENTRIES
+        "ipg_id": parts[0],
         #source=parts[1],
         "nucleotide_accession": parts[2] or "NA",
         #start=parts[3],
@@ -76,18 +76,28 @@ for line in result.splitlines():
     
     rows.append(row)
 
-# When searching in ipg, I get all entries that have the same sequence as my protein_id, filter by the protein_id to get only the entries that are in the fasta, and not download more gbff.
-rows = [r for r in rows if r["protein"] in protein_id_list]
+# Group all rows by ipg_id (columns with the same ipg_id represent the same protein sequence)
+clusters = {}
+for r in rows:
+    clusters.setdefault(r["ipg_id"], []).append(r)
 
-# Eliminate duplicates based on protein ID
-seen = set()
+# For each protein of interest, find its cluster and pick the first row with assembly
+protein_id_set = set(protein_id_list)
 new_rows = []
+seen_clusters = set()
 
 for r in rows:
     pid = r["protein"]
-    if pid not in seen:
-        seen.add(pid)
-        new_rows.append(r)
+    if pid not in protein_id_set:
+        continue
+    cluster_id = r["ipg_id"]
+    if cluster_id in seen_clusters:
+        continue
+    seen_clusters.add(cluster_id)
+    cluster_rows = clusters[cluster_id]
+    # Pick the first row in the cluster that has an assembly (trust NCBI order)
+    best = next((cr for cr in cluster_rows if cr["assembly"] and cr["assembly"] != "NA"), cluster_rows[0])
+    new_rows.append(best)
 print("MIDDLE PARSING", flush=True)
 # Save the assemblies for datasets --inputfile and nucleotide accessions with no assembly info
 no_assembly_list = [r["nucleotide_accession"] for r in new_rows if r["assembly"] in ("NA", None, "")]
@@ -121,6 +131,10 @@ if assemblies:
 # Add the isolate to each row
 for r in new_rows:
     r["isolate"] = assembly_to_isolate.get(r["assembly"], "NA")
+
+# Remove internal ipg_id before export
+for r in new_rows:
+    r.pop("ipg_id", None)
 
 fieldnames = ["protein", "organism", "strain", "assembly", "isolate", "nucleotide_accession"]
 
