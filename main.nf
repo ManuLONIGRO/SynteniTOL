@@ -22,7 +22,7 @@ include { map_ids_to_locustag           } from './modules/map_ids_to_locustag.nf
 include { merge_mappings                } from './modules/merge_mappings.nf'
 include { build_dataframe               } from './modules/build_dataframe.nf'
 include { generate_synteny_data         } from './modules/generate_synteny_data.nf'
-include { generate_synteny_data_fromProtein } from './modules/generate_synteny_data_fromProtein.nf'
+include { generate_synteny_centered_on_fasta } from './modules/generate_synteny_centered_on_fasta.nf'
 include { generate_itol_files           } from './modules/generate_itol_files.nf'
 include { reformat_fasta_headers        } from './modules/reformat_fasta_headers.nf'
 include { taxonomy_itol_files           } from './modules/taxonomy_itol_files.nf'
@@ -220,7 +220,7 @@ workflow {
     ids_locustag_mapping_script_ch      = channel.fromPath('bin/ids_locustag_mapping.py')
     map_genes_to_tsv_script_ch          = channel.fromPath('bin/map_genes_to_tsv.py')
     createFiles2Synteny_script_ch       = channel.fromPath('bin/createFiles2Synteny.py')
-    createFiles2Synteny_fromProtein_script_ch = channel.fromPath('bin/createFiles2synteny_fromProtein.py')
+    createFiles2Synteny_centered_on_fasta_script_ch = channel.fromPath('bin/createFiles2Synteny_centered_on_fasta.py')
     syntenyTaxOrg_script_ch             = channel.fromPath('bin/syntenyTaxOrg.py')
     new_formatHeaders_script_ch         = channel.fromPath('bin/new_formatHeaders_inputFASTA.py')
     _rename_no_assemblies_script_ch      = channel.fromPath('bin/rename_no_assemblies.py')
@@ -350,11 +350,11 @@ workflow {
                                         .combine(efetch_results.protein_to_organism_map)
                                         .combine(evalue))
 
-    synteny_results_from_protein = generate_synteny_data_fromProtein(
+    synteny_results_centered_on_fasta = generate_synteny_centered_on_fasta(
                                     channel.value(cogs_csv)
                                         .combine(all_genomes_dir)
                                         .combine(map_df)
-                                        .combine(createFiles2Synteny_fromProtein_script_ch)
+                                        .combine(createFiles2Synteny_centered_on_fasta_script_ch)
                                         .combine(evalue)
                                         .combine(fasta_ch)
                                         .combine(channel.value(color_group_opt)))

@@ -298,7 +298,7 @@ for pid in fasta_protein_ids:
 # ---------------------------------------------------------------------------
 # STEP 5: Generate iTOL DATASET_ARROWS file
 # ---------------------------------------------------------------------------
-label = f"Synteny_{fasta_protein_ids[0]}"
+label = "Synteny_centered_on_FASTA_proteins"
 out_path = args.itol_synteny_file
 
 if not results:

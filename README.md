@@ -74,7 +74,7 @@ nextflow run main.nf \
 results/run_timestamp/
 ├── itol_profiling.txt           # iTOL dataset: Presence/absence profiling
 ├── itol_synteny_conserved.txt   # iTOL dataset: Synteny of the best conserved GOI
-├── itol_synteny_fasta.txt       # iTOL dataset: Synteny centered on each FASTA protein_id
+├── itol_synteny_centered_on_fasta_proteins.txt # iTOL dataset: Synteny centered on FASTA proteins
 ├── itol_taxonomy_class.txt      # iTOL taxonomic info file: Classes
 ├── itol_taxonomy_domain.txt     # iTOL taxonomic info file: Domains
 ├── itol_taxonomy_phylum.txt     # iTOL taxonomic info file: Phylums
