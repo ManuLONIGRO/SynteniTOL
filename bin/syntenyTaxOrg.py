@@ -192,7 +192,7 @@ n_fields = ",1" * len(gene_list)
 
 with open(itol_binario, "w") as f3:
     f3.write(
-        f"DATASET_BINARY\nSEPARATOR COMMA\nDATASET_LABEL,Gene\nCOLOR,#ff0000\nFIELD_SHAPES{n_fields}\nFIELD_LABELS,{','.join(gene_list)}\nFIELD_COLORS,{','.join(gen_color)}\nDATA\n"
+        f"DATASET_BINARY\nSEPARATOR COMMA\nDATASET_LABEL,Gene profiling\nCOLOR,#ff0000\nFIELD_SHAPES{n_fields}\nFIELD_LABELS,{','.join(gene_list)}\nFIELD_COLORS,{','.join(gen_color)}\nDATA\n"
     )
     for organism, gene_presence in organism_gene_presence.items():
         presence_list = [str(gene_presence[gene]) for gene in gene_list]
