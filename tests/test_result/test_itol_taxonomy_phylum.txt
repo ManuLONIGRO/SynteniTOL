@@ -1,0 +1,22 @@
+DATASET_COLORSTRIP
+SEPARATOR COMMA
+COLOR_BRANCHES,1
+DATASET_LABEL,Phylum
+COLOR,#ff0000
+LEGEND_TITLE,Phylum
+LEGEND_SHAPES,1,1,1,1,1
+LEGEND_COLORS,#0000FF,#FF0000,#00FF00,#000033,#FF00B6
+LEGEND_LABELS,Candidatus_Freyarchaeota,Methanobacteriota,NA,Planctomycetota,Pseudomonadota
+DATA
+521674|Planctopirus_limnophila_DSM_3776|DSM_3776|NA|1,#000033
+114|Gemmata_obscuriglobus|DSM_5831|NA|1,#000033
+304371|Methanocella_paludicola_SANAE|SANAE|NA|1,#FF0000
+3402145|Candidatus_Freyarchaeum_deiterrae|NA|SRVP19_Freyarchaeia-1|1,#00FF00
+3036978|Candidatus_Freyrarchaeum_guaymaensis|NA|GB_128|1,#0000FF
+2527978|Gimesia_panareensis|Pan110|NA|1,#000033
+2802052|Azospirillum_aestuarii|YIM_DDC1|NA|1,#FF00B6
+3067279|Candidatus_Jordarchaeia_archaeon|NA|JZ|1,#00FF00
+1071679|Caballeronia_grimmiae|Lep1A1|NA|1,#FF00B6
+1777135|Caballeronia_arvi|NA|LMG_29317|1,#FF00B6
+530564|Pirellula_staleyi_DSM_6068|DSM_6068|NA|1,#000033
+697197|Methylothermus_subterraneus|JCM_13664|NA|1,#FF00B6

@@ -188,6 +188,80 @@ nextflow run main.nf \
 
 ---
 
+## Testing
+
+SynteniToL incluye un suite de tests en `tests/`:
+
+- **Tests de validación de CLI** (rápidos): `test_unknown_parameter.sh`,
+  `test_duplicate_cogs.sh`, `test_duplicate_custom_profiles.sh`,
+  `test_gene_order.sh`. Verifican que parámetros inválidos se rechacen antes
+  de correr el pipeline.
+- **Test de regresión** (`test_regression.sh`): re-ejecuta el comando exacto
+  del run estable `results/run_20260916_142328` (guardado en
+  `tests/test_result/test_run_command.txt`) contra el FASTA de prueba
+  `data/fwd/small_fwda_test` y compara los 6 archivos `itol_*.txt` resultantes
+  contra el golden de `tests/test_result/`.
+
+### Correr todos los tests
+
+```bash
+tests/run_all_tests.sh
+```
+
+Duración esperada total: **~13-14 min**. De ese tiempo, ~11 min corresponden a la
+regresión re-ejecutando el pipeline real (normal, no es un cuelgue); las
+validaciones de CLI tardan ~1-3 min y corren sin red.
+
+Para saltar la regresión (validaciones de CLI solamente, ~1-3 min):
+
+```bash
+tests/run_all_tests.sh --skip-regression
+```
+
+Opciones válidas de `run_all_tests.sh`:
+
+- `--skip-regression`: omite `test_regression.sh`.
+- `-h` / `--help`: muestra el uso y las opciones disponibles.
+
+Cualquier otra opción (p. ej. `--skip-regresion`, con typo) aborta la suite con
+exit 2 **antes de correr ningún test** y lista las opciones disponibles.
+
+### Solo el test de regresión
+
+```bash
+tests/test_regression.sh
+```
+
+Opciones válidas de `test_regression.sh`:
+
+- `--outdir <path>`: directorio de salida del run nuevo (default
+  `results/regression_<timestamp>`).
+- `-h` / `--help`: muestra el uso y las opciones disponibles.
+
+Cualquier opción desconocida, `--outdir` sin valor, o argumentos de más abortan
+el script con exit 2 antes de lanzar el pipeline.
+
+El run nuevo queda en `results/regression_<timestamp>/`. Si algo cambió:
+
+- Se imprime un `WARNING` y se escribe un diff detallado en
+  `results/regression_<timestamp>/itol_diff_report.txt`.
+- Comparalo contra el golden para decidir si el cambio corresponde a la última
+  implementación.
+- Si el cambio es intencional, regenerá el golden (ver `tests/test_result/readme.md`).
+
+También podés comparar dos directorios manualmente, sin re-correr el pipeline:
+
+```bash
+python3 tests/compare_itol_results.py \
+    --reference tests/test_result \
+    --current results/run_XXXXXX_YYYYYYYY
+```
+
+La comparación normaliza el orden de las filas (el paralelismo de Nextflow no
+produce falsos cambios) y reporta diferencias de cabecera, genes y colores.
+
+---
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

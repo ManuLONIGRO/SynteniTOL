@@ -9,7 +9,7 @@ TMP_FASTA="$(mktemp)"
 TMP_OUT="$(mktemp -d)"
 trap 'rm -f "$TMP_LOG" "$TMP_FASTA"; rm -rf "$TMP_OUT"' EXIT
 
-printf '>dummy\nACGT\n' >"$TMP_FASTA"
+: > "$TMP_FASTA"
 
 # --- Case A: unknown gene in --gene_order must stop the pipeline ---
 set +e
@@ -70,8 +70,12 @@ fi
 echo "PASS: duplicates in --gene_order are rejected before the pipeline runs"
 
 # --- Case C: genes missing from --gene_order only warn, run continues ---
+# An empty FASTA is used so the warning is emitted (it happens before any
+# process) and the pipeline then fails deterministically on empty assemblies
+# (.ifEmpty in main.nf) without contacting NCBI. The timeout -k guarantees the
+# test never hangs even if something unexpected blocks.
 set +e
-timeout 300 nextflow run main.nf \
+timeout -k 60 180 nextflow run main.nf \
   --inputFASTA "$TMP_FASTA" \
   --cogs COG1152,COG1795 \
   --gene_order COG1795 \

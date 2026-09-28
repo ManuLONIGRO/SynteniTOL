@@ -1,0 +1,20 @@
+DATASET_BINARY
+SEPARATOR COMMA
+DATASET_LABEL,Gene profiling
+COLOR,#ff0000
+FIELD_SHAPES,1,1,1,1,1,1,1,1,1,1
+FIELD_LABELS,COG1229,COG1029,COG2218,COG2037,COG3252,COG1927,COG4074,COG2141,COG1795,AAB98766.1
+FIELD_COLORS,#0000FF,#0000FF,#0000FF,#0000FF,#0000FF,#0000FF,#0000FF,#0000FF,#0000FF,#FF0000
+DATA
+1777135|Caballeronia_arvi|NA|LMG_29317|1,1,1,1,1,1,-1,-1,1,1,1
+114|Gemmata_obscuriglobus|DSM_5831|NA|1,1,1,1,1,1,-1,-1,1,1,1
+697197|Methylothermus_subterraneus|JCM_13664|NA|1,1,1,1,1,1,-1,-1,-1,1,1
+2802052|Azospirillum_aestuarii|YIM_DDC1|NA|1,1,1,1,1,1,-1,-1,1,1,1
+3067279|Candidatus_Jordarchaeia_archaeon|NA|JZ|1,1,1,1,1,1,1,-1,1,1,1
+1071679|Caballeronia_grimmiae|Lep1A1|NA|1,1,1,1,1,1,-1,-1,1,1,1
+304371|Methanocella_paludicola_SANAE|SANAE|NA|1,1,1,1,1,1,1,-1,1,1,1
+521674|Planctopirus_limnophila_DSM_3776|DSM_3776|NA|1,1,1,1,1,1,-1,-1,-1,1,1
+2527978|Gimesia_panareensis|Pan110|NA|1,1,1,1,1,1,-1,-1,-1,1,1
+530564|Pirellula_staleyi_DSM_6068|DSM_6068|NA|1,1,1,1,1,1,-1,-1,1,1,1
+3036978|Candidatus_Freyrarchaeum_guaymaensis|NA|GB_128|1,1,1,1,1,1,1,-1,1,1,1
+3402145|Candidatus_Freyarchaeum_deiterrae|NA|SRVP19_Freyarchaeia-1|1,1,1,1,1,1,1,-1,1,1,1
