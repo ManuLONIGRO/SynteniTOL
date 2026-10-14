@@ -6,10 +6,10 @@ set -uo pipefail
 #   - test_duplicate_cogs.sh           (CLI validation)
 #   - test_duplicate_custom_profiles.sh (CLI validation)
 #   - test_gene_order.sh               (CLI validation, ~1-3 min)
+#   - test_only_fasta.sh               (integration: --only_fasta mode, downloads genomes, no synteny/profiling)
 #   - test_regression.sh               (golden reference comparison, FULL pipeline ~11 min)
 #
-# Expected total duration: ~13-14 min (validation + regression). ~11 min of that
-# is the regression re-running the real pipeline, which is normal, not a hang.
+# Expected total duration: ~13-14 min (validation + regression + only_fasta).
 #
 # Usage:
 #   tests/run_all_tests.sh [--skip-regression]
@@ -90,6 +90,23 @@ for test_name in "${VALIDATION_TESTS[@]}"; do
     fi
 done
 
+echo
+printf '%-40s' "Corriendo test_only_fasta.sh (integración)... "
+set +e
+timeout -k 120 1500 bash tests/test_only_fasta.sh >/tmp/syntenitol_test_only_fasta.log 2>&1
+only_fasta_code=$?
+set -e
+case $only_fasta_code in
+    0) echo "PASS" ;;
+    *)
+        echo "FAIL (exit ${only_fasta_code})"
+        [[ $only_fasta_code -eq 124 ]] && echo "   (timeout: test_only_fasta supero el limite de 25 min)"
+        tail -30 "/tmp/syntenitol_test_only_fasta.log"
+        FAILED=$((FAILED + 1))
+        OVERALL=2
+        ;;
+esac
+
 if [[ $SKIP_REGRESSION -eq 1 ]]; then
     echo
     echo "SKIP test_regression.sh (--skip-regression)"
@@ -129,6 +146,11 @@ for entry in "${RESULTS[@]}"; do
     [[ $code -ne 0 ]] && status="FAIL"
     printf '  %-40s %s\n' "${name}" "${status}"
 done
+if [[ $only_fasta_code -eq 0 ]]; then
+    printf '  %-40s %s\n' "test_only_fasta.sh" "PASS"
+else
+    printf '  %-40s %s\n' "test_only_fasta.sh" "FAIL"
+fi
 if [[ $SKIP_REGRESSION -eq 0 ]]; then
     if [[ $reg_code -eq 0 ]]; then
         printf '  %-40s %s\n' "test_regression.sh" "PASS"

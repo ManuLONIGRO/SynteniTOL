@@ -46,6 +46,7 @@ workflow {
         'gene_order',
         'color_by_group',
         'no_taxonomy',
+        'only_fasta',
         'base_name',
         'evalue',
         'run_id',
@@ -79,10 +80,12 @@ workflow {
         Usage: nextflow run main.nf --inputFASTA <input_fasta_file> --cogs <cog_list> [options]
 
         ${YELLOW}IMPORTANT:${RESET} the first COG in --cogs is used as reference for synteny plots (override with --query_profile).
+        Use --only_fasta to skip the synteny/profiling analysis and just generate formatted_headers.fasta and the tree.
 
         Options:
         --inputFASTA       Input FASTA file with sequences from blastp results (mandatory)
-        --cogs             Comma-separated list of COGs (e.g., COG1152,COG1795) (mandatory)
+        --only_fasta       Only generate formatted_headers.fasta (and the tree); skip synteny analysis, HMM profiling and taxonomy. --cogs is not required in this mode. Other analysis parameters are ignored (warning printed)
+        --cogs             Comma-separated list of COGs (e.g., COG1152,COG1795) (mandatory unless --only_fasta)
         --custom_hmm_profiles Optional comma-separated list of custom HMM profile paths (each path and profile name must be unique)
         --query_profile    Optional profile label to use as reference for inputFASTA (must exist in COGs/custom profiles)
         --gene_order       Optional comma-separated list defining the column order of itol_profiling.txt. Genes must exist in --cogs/--custom_hmm_profiles; missing genes are appended in CLI order (warning printed)
@@ -123,86 +126,104 @@ workflow {
 
     // Define evalue parameter channel
     def evalue = channel.value(params.evalue)
-    // Parse and validate COG list safely (params.cogs may be null/empty)
-    def cogs_list = (params.cogs ?: '')
-        .tokenize(',')
-        .collect { v -> v.trim() }
-        .findAll { v -> v }
-    if (cogs_list.isEmpty()) { error "Missing --cogs. Use --help for usage." }
 
-    // Optional custom HMM profiles provided by user (comma-separated paths)
-    def custom_profiles_list = (params.custom_hmm_profiles ?: '')
-        .tokenize(',')
-        .collect { v -> v.trim() }
-        .findAll { v -> v }
-    def duplicate_custom_paths = custom_profiles_list
-        .countBy { profilePath -> profilePath }
-        .findAll { profilePath, count -> count > 1 }
-        .collect { profilePath, count -> "${profilePath} (×${count})" }
-    if (duplicate_custom_paths) {
-        error "${RED}Duplicate paths in --custom_hmm_profiles: ${duplicate_custom_paths.join(', ')}. Each profile path must appear only once.${RESET}"
-    }
+    // Variables shared with the rest of the workflow (filled in the else
+    // branch below). In --only_fasta mode they stay empty because the analysis
+    // they drive (HMM search, synteny, iTOL files, taxonomy) is skipped.
+    def cogs_list = []
+    def custom_profile_tuples = []
+    def custom_profile_names = []
+    def gene_order_list = []
+    def all_gene_labels = []
 
-    def custom_profile_tuples = custom_profiles_list.collect { profilePath ->
-        def profileFile = file(profilePath)
-        if (!profileFile.exists()) {
-            error "Custom HMM profile not found: ${profilePath}"
+    if (params.only_fasta) {
+        def ignored_params = ['cogs','custom_hmm_profiles','query_profile','gene_order','color_by_group','no_taxonomy']
+            .findAll { key -> params[key] }
+        if (ignored_params) {
+            log.warn "${YELLOW}Warning: --${ignored_params.join(' --')} is ignored in --only_fasta mode. Only formatted_headers.fasta and the tree will be generated.${RESET}"
         }
-        def profileName = java.nio.file.Paths.get(profilePath).fileName.toString().replaceFirst(/\.hmm$/, '').replaceFirst(/^profile_/, '')
-        [profileName, profileFile]
-    }
-    def custom_profile_names = custom_profile_tuples.collect { entry -> entry[0] }
+    } else {
+        // Parse and validate COG list safely (params.cogs may be null/empty)
+        cogs_list = (params.cogs ?: '')
+            .tokenize(',')
+            .collect { v -> v.trim() }
+            .findAll { v -> v }
+        if (cogs_list.isEmpty()) { error "Missing --cogs. Use --help for usage." }
 
-    def duplicate_custom_names = custom_profile_names
-        .countBy { profileName -> profileName }
-        .findAll { _profileName, count -> count > 1 }
-        .collect { profileName, count -> "${profileName} (×${count})" }
-    if (duplicate_custom_names) {
-        error "${RED}Duplicate custom profile names in --custom_hmm_profiles: ${duplicate_custom_names.join(', ')}. Profile names are derived from filenames (without .hmm and optional profile_ prefix); each must be unique.${RESET}"
-    }
-
-    // Check the cogs in the list of cogs. If one COG is other thing that COGXXXX, with XXXX from 0001 to 5950, exit with error. Print the error in red.
-    def cog_pattern = ~/^COG(0[0-9]{3}|[1-5][0-9]{3}|5950)$/
-    def invalid_cogs = cogs_list.findAll { cog -> !(cog ==~ cog_pattern) }
-    if (invalid_cogs) {
-        error "${RED}Invalid COG identifiers found: ${invalid_cogs.join(', ')}. COGs should be in the format COGXXXX, where XXXX is a number from 0001 to 5950.${RESET}"
-    }
-
-    def duplicate_cogs = cogs_list
-        .countBy { cog -> cog }
-        .findAll { cog, count -> count > 1 }
-        .collect { cog, count -> "${cog} (×${count})" }
-    if (duplicate_cogs) {
-        error "${RED}Duplicate COG identifiers in --cogs: ${duplicate_cogs.join(', ')}. Each COG must appear only once.${RESET}"
-    }
-
-    // All gene labels requested via --cogs and --custom_hmm_profiles, in CLI order.
-    def all_gene_labels = cogs_list + custom_profile_names
-
-    // Optional --gene_order: defines the column order of itol_profiling.txt.
-    // Every gene must exist in --cogs/--custom_hmm_profiles; genes missing from
-    // the list are appended at the end in CLI order (warning only, run continues).
-    def gene_order_list = (params.gene_order ?: '')
-        .tokenize(',')
-        .collect { v -> v.trim() }
-        .findAll { v -> v }
-    if (gene_order_list) {
-        def duplicate_gene_order = gene_order_list
-            .countBy { gene -> gene }
-            .findAll { gene, count -> count > 1 }
-            .collect { gene, count -> "${gene} (×${count})" }
-        if (duplicate_gene_order) {
-            error "${RED}Duplicate identifiers in --gene_order: ${duplicate_gene_order.join(', ')}. Each gene must appear only once.${RESET}"
+        // Optional custom HMM profiles provided by user (comma-separated paths)
+        def custom_profiles_list = (params.custom_hmm_profiles ?: '')
+            .tokenize(',')
+            .collect { v -> v.trim() }
+            .findAll { v -> v }
+        def duplicate_custom_paths = custom_profiles_list
+            .countBy { profilePath -> profilePath }
+            .findAll { profilePath, count -> count > 1 }
+            .collect { profilePath, count -> "${profilePath} (×${count})" }
+        if (duplicate_custom_paths) {
+            error "${RED}Duplicate paths in --custom_hmm_profiles: ${duplicate_custom_paths.join(', ')}. Each profile path must appear only once.${RESET}"
         }
 
-        def unknown_gene_order = gene_order_list.findAll { gene -> !(gene in all_gene_labels) }
-        if (unknown_gene_order) {
-            error "${RED}Invalid identifiers in --gene_order: ${unknown_gene_order.join(', ')}. Genes must be present in --cogs or --custom_hmm_profiles.${RESET}"
+        custom_profile_tuples = custom_profiles_list.collect { profilePath ->
+            def profileFile = file(profilePath)
+            if (!profileFile.exists()) {
+                error "Custom HMM profile not found: ${profilePath}"
+            }
+            def profileName = java.nio.file.Paths.get(profilePath).fileName.toString().replaceFirst(/\.hmm$/, '').replaceFirst(/^profile_/, '')
+            [profileName, profileFile]
+        }
+        custom_profile_names = custom_profile_tuples.collect { entry -> entry[0] }
+
+        def duplicate_custom_names = custom_profile_names
+            .countBy { profileName -> profileName }
+            .findAll { _profileName, count -> count > 1 }
+            .collect { profileName, count -> "${profileName} (×${count})" }
+        if (duplicate_custom_names) {
+            error "${RED}Duplicate custom profile names in --custom_hmm_profiles: ${duplicate_custom_names.join(', ')}. Profile names are derived from filenames (without .hmm and optional profile_ prefix); each must be unique.${RESET}"
         }
 
-        def missing_in_gene_order = all_gene_labels.findAll { gene -> !(gene in gene_order_list) }.unique()
-        if (missing_in_gene_order) {
-            log.warn "${YELLOW}Warning: the following genes from --cogs/--custom_hmm_profiles are missing in --gene_order: ${missing_in_gene_order.join(', ')}. They will be appended at the end of itol_profiling.txt in CLI order.${RESET}"
+        // Check the cogs in the list of cogs. If one COG is other thing that COGXXXX, with XXXX from 0001 to 5950, exit with error. Print the error in red.
+        def cog_pattern = ~/^COG(0[0-9]{3}|[1-5][0-9]{3}|5950)$/
+        def invalid_cogs = cogs_list.findAll { cog -> !(cog ==~ cog_pattern) }
+        if (invalid_cogs) {
+            error "${RED}Invalid COG identifiers found: ${invalid_cogs.join(', ')}. COGs should be in the format COGXXXX, where XXXX is a number from 0001 to 5950.${RESET}"
+        }
+
+        def duplicate_cogs = cogs_list
+            .countBy { cog -> cog }
+            .findAll { cog, count -> count > 1 }
+            .collect { cog, count -> "${cog} (×${count})" }
+        if (duplicate_cogs) {
+            error "${RED}Duplicate COG identifiers in --cogs: ${duplicate_cogs.join(', ')}. Each COG must appear only once.${RESET}"
+        }
+
+        // All gene labels requested via --cogs and --custom_hmm_profiles, in CLI order.
+        all_gene_labels = cogs_list + custom_profile_names
+
+        // Optional --gene_order: defines the column order of itol_profiling.txt.
+        // Every gene must exist in --cogs/--custom_hmm_profiles; genes missing from
+        // the list are appended at the end in CLI order (warning only, run continues).
+        gene_order_list = (params.gene_order ?: '')
+            .tokenize(',')
+            .collect { v -> v.trim() }
+            .findAll { v -> v }
+        if (gene_order_list) {
+            def duplicate_gene_order = gene_order_list
+                .countBy { gene -> gene }
+                .findAll { gene, count -> count > 1 }
+                .collect { gene, count -> "${gene} (×${count})" }
+            if (duplicate_gene_order) {
+                error "${RED}Duplicate identifiers in --gene_order: ${duplicate_gene_order.join(', ')}. Each gene must appear only once.${RESET}"
+            }
+
+            def unknown_gene_order = gene_order_list.findAll { gene -> !(gene in all_gene_labels) }
+            if (unknown_gene_order) {
+                error "${RED}Invalid identifiers in --gene_order: ${unknown_gene_order.join(', ')}. Genes must be present in --cogs or --custom_hmm_profiles.${RESET}"
+            }
+
+            def missing_in_gene_order = all_gene_labels.findAll { gene -> !(gene in gene_order_list) }.unique()
+            if (missing_in_gene_order) {
+                log.warn "${YELLOW}Warning: the following genes from --cogs/--custom_hmm_profiles are missing in --gene_order: ${missing_in_gene_order.join(', ')}. They will be appended at the end of itol_profiling.txt in CLI order.${RESET}"
+            }
         }
     }
 
@@ -236,12 +257,12 @@ workflow {
                                             efetch_script_ch
                                             )
 
-    if (!params.no_taxonomy) {
+    if (!params.no_taxonomy && !params.only_fasta) {
         taxonomy_info_results           = get_taxonomy_info(
                                             efetch_results.all_accessions,
                                             get_taxonomy_info_script_ch
                                         )
-    } else {
+    } else if (!params.only_fasta) {
         log.info "${YELLOW}Skipping taxonomy steps (get_taxonomy_info, taxonomy_itol_files) due to --no_taxonomy${RESET}"
     }
 
@@ -293,7 +314,16 @@ workflow {
                                     rename_no_assemblies_or_empty.collect()       // val genomes_no_assemblies_dir
                                 )
 
-    proteomes_dir               = extract_proteomes(all_genomes_dir.combine(gbff2prot_script_ch))
+    formatted_fasta_ch          = reformat_fasta_headers(
+                                    fasta_ch
+                                        .combine(all_genomes_dir)
+                                        .combine(new_formatHeaders_script_ch)
+                                )
+
+    if (params.only_fasta) {
+        log.info "${YELLOW}--only_fasta: skipping HMM search, synteny analysis, iTOL files and taxonomic profiling. Only formatted_headers.fasta (and the tree) will be generated.${RESET}"
+    } else {
+        proteomes_dir               = extract_proteomes(all_genomes_dir.combine(gbff2prot_script_ch))
 
     
     cogs_ch                     = channel.fromList(cogs_list)
@@ -384,16 +414,7 @@ workflow {
                                         .combine(binary_presence_ch)
                                         .combine(best_goi_tsv_ch)
                                         .combine(syntenyTaxOrg_script_ch)
-                                )
-
-
-    formatted_fasta_ch          = reformat_fasta_headers(
-                                    fasta_ch
-                                        .combine(all_genomes_dir)
-                                        .combine(new_formatHeaders_script_ch)
-                                )
-    
-
+                            )
 
     if (!params.no_taxonomy) {
         _taxonomy_itol_files_results = taxonomy_itol_files(
@@ -402,6 +423,7 @@ workflow {
                                             .combine(formatted_fasta_ch)
                                             .combine(taxonomy_itol_files_script_ch)
                                     )
+    }
     }
 
     _maketree_results            = make_tree(formatted_fasta_ch, base_name)

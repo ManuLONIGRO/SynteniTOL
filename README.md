@@ -104,7 +104,7 @@ nextflow run main.nf [OPTIONS]
 | Parameter          | Description                                                               |
 |--------------------|---------------------------------------------------------------------------|
 | `--inputFASTA`     | Input FASTA file containing protein sequences (e.g., from BLASTp results) |
-| `--cogs`           | Comma-separated list of COG identifiers (e.g., `COG1152,COG1795`). Each COG must appear only once. |
+| `--cogs`           | Comma-separated list of COG identifiers (e.g., `COG1152,COG1795`). Each COG must appear only once. Not required when using `--only_fasta`. |
 **IMPORTANT: the first cog in --cogs is the COG of the protein homologs in the FASTA file**
 
 ### Optional Parameters
@@ -116,6 +116,7 @@ nextflow run main.nf [OPTIONS]
 | `--gene_order`          | Optional comma-separated list defining the column order of `itol_profiling.txt` (e.g., `COG1795,COG1152`). Every gene must exist in `--cogs`/`--custom_hmm_profiles`; genes missing from the list are appended at the end in CLI order and a warning is printed (the run is not stopped). The synteny reference (`--query_profile`) is unaffected. |
 | `--color_by_group`      | Group COGs for coloring in iTOL (format: `COG1229-COG1029,COG2218`)                             |
 | `--no_taxonomy`         | Skip NCBI taxonomy lookup and taxonomic iTOL layers (domain/phylum/class)                      |
+| `--only_fasta`          | Only generate `formatted_headers.fasta` and the tree; skip the synteny/HMM analysis and taxonomy. `--cogs` is not required with this flag; other analysis parameters (e.g. `--gene_order`, `--color_by_group`) are ignored with a warning. |
 | `--outdir`              | Output directory for results                                                                   |
 | `--help`                | Display help message                                                                           |
 
@@ -165,6 +166,16 @@ nextflow run main.nf \
     --color_by_group "COG1229-COG1029,COG2218,COG1152"
 ```
 
+**Only formatted headers (+ tree), no synteny/profiling:**
+
+```bash
+nextflow run main.nf \
+    -profile docker \
+    --inputFASTA proteins.faa \
+    --only_fasta
+```
+With `--only_fasta` the pipeline only downloads the referenced genomes, reformats the FASTA headers to `protein_id|specie_name|strain|isolate` and builds the tree. The HMM search, synteny analysis, iTOL files and taxonomy lookup are skipped, so `--cogs`, `--custom_hmm_profiles`, `--gene_order`, `--query_profile` and `--color_by_group` are ignored (a warning is printed if any of them is provided).
+
 ### Getting an NCBI API Key
 
 1. Sign in to your [NCBI account](https://www.ncbi.nlm.nih.gov/account/)
@@ -185,6 +196,8 @@ nextflow run main.nf \
 6. **Gene Mapping**: Maps protein IDs to locus tags and gene positions
 7. **Synteny Analysis**: Extracts syntenic contexts around the first COG of --cogs
 8. **Visualization**: Generates iTOL-compatible files for interactive visualization
+
+> With `--only_fasta` only steps 1-2 run (to build `formatted_headers.fasta`), plus the phylogenetic tree reconstruction (see `modules/make_tree.nf`).
 
 ---
 
