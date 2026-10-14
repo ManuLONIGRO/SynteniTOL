@@ -15,6 +15,40 @@ import csv
 # import time
 import os
 import re
+import tempfile
+
+# Query the NCBI E-utilities in batches. Passing thousands of identifiers as a
+# single `-id` argument overflows Linux's per-argument limit
+# (MAX_ARG_STRLEN = 32 * page size = 131072 bytes) and raises
+# `OSError: [Errno 7] Argument list too long`. Instead we write each batch of
+# identifiers to a temporary file and let efetch read them with `-input`, which
+# also keeps each request small enough for the NCBI GET/URL limits.
+BATCH_SIZE = 500
+
+
+def efetch_batched(db, ids, fmt, batch_size=BATCH_SIZE, xtract=None):
+    """Run efetch over `ids` in batches of `batch_size`, returning concatenated stdout.
+
+    Identifiers are passed through a temporary file via `-input` so the command
+    line never grows with the number of queries. If `xtract` is given, its
+    arguments are appended as a shell pipe (`... | xtract <xtract>`).
+    """
+    ids = list(ids)
+    chunks = [ids[i:i + batch_size] for i in range(0, len(ids), batch_size)]
+    outputs = []
+    for chunk in chunks:
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as tmp:
+            tmp.write("\n".join(chunk) + "\n")
+            tmp_path = tmp.name
+        try:
+            cmd = f"efetch -db {db} -input {tmp_path} -format {fmt}"
+            if xtract:
+                cmd += f" | xtract {xtract}"
+            out = subprocess.check_output(cmd, shell=True, text=True)
+        finally:
+            os.remove(tmp_path)
+        outputs.append(out)
+    return "".join(outputs)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--fasta",required=True, help="Path to input FASTA file")
@@ -43,12 +77,10 @@ with open(fasta_path) as fasta:
             protein_id = match.group(1) if match else header.split(None,1)[0]  # Fallback to first word if regex fails
             protein_id_list.append(protein_id)
 
-# Convert list to format suitable for efetch
-queries = ",".join(protein_id_list)
 print("START PARSING", flush=True)
-# Execute efetch (uses ipg format)
-cmd_ipg = f"efetch -db protein -id {queries} -format ipg"
-result = subprocess.check_output(cmd_ipg, shell=True, text=True)
+# Execute efetch (uses ipg format), querying in batches to avoid the
+# "Argument list too long" OS error on large input FASTAs.
+result = efetch_batched("protein", protein_id_list, "ipg")
 
 # Process lines and save in list
 rows = []
@@ -117,9 +149,12 @@ print("END PARSING", flush=True)
 # Execute efetch only if we have assemblies to query
 assembly_to_isolate = {}
 if assemblies:
-    assemblies_query = ",".join(assemblies)
-    cmd_assembly = f"efetch -db assembly -id {assemblies_query} -format docsum | xtract -pattern DocumentSummary -element AssemblyAccession Sub_value Isolate"
-    result2 = subprocess.check_output(cmd_assembly, shell=True, text=True).strip()
+    result2 = efetch_batched(
+        "assembly",
+        assemblies,
+        "docsum",
+        xtract="-pattern DocumentSummary -element AssemblyAccession Sub_value Isolate",
+    ).strip()
 
     # Diccionario assembly: isolate
     for line2 in result2.splitlines():
