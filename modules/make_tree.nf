@@ -8,8 +8,9 @@ process make_tree {
 
     script:
     """
-    mafft --auto "${formatted_fasta}" > aligned.fasta
+    mafft --anysymbol --auto "${formatted_fasta}" > aligned.fasta
     conda run -n syntenitol bmge -i aligned.fasta -o-of trimmed.fasta -m BLOSUM30 -t AA -h 0.5
-    fasttree trimmed.fasta > tree_${base_name}_${params.run_id}.nwk
+    awk '/^>/{n=substr(\$1,2); gsub(/[:(),]/,"_",n); c[n]++; if(c[n]>1) n=n"_"c[n]; print ">"n; next} {print}' trimmed.fasta > unique.fasta
+    fasttree unique.fasta > tree_${base_name}_${params.run_id}.nwk
     """
 }
