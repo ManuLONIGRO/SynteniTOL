@@ -22,6 +22,7 @@ process generate_synteny_centered_on_fasta {
       --dataframe "${dataframe}" \
       --cogs "${cogs_csv}" \
       --evalue ${evalue} \
+      --window ${params.window} \
       \${extra} \
       --itol_synteny_file itol_synteny_centered_on_fasta_proteins.txt
     """

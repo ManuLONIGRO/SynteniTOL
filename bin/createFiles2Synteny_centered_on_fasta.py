@@ -45,6 +45,10 @@ parser.add_argument(
     help="E-value threshold for filtering dataframe hits (default: 1e-10).",
 )
 parser.add_argument(
+    "--window", type=int, default=30000,
+    help="Genomic context window in bp on each side of the centered gene (default: 30000).",
+)
+parser.add_argument(
     "--cogs", type=str, default=None,
     help="Comma-separated COG/gene list for coloring, e.g. COG1152,COG1795.",
 )
@@ -62,6 +66,11 @@ parser.add_argument(
     help="Output path for iTOL DATASET_ARROWS file.",
 )
 args = parser.parse_args()
+
+window = args.window  # bp of context on each side of the centered gene
+# iTOL DATASET_ARROWS total length: twice the window plus ~20% headroom so that
+# gene arrows ending slightly beyond 2*window are never clipped/out of range.
+track_length = 2 * window * 6 // 5
 
 
 # ---------------------------------------------------------------------------
@@ -277,12 +286,12 @@ for pid in fasta_protein_ids:
             reflected.append((min(ns, ne), max(ns, ne), -st, nm, tg))
         genes = sorted(reflected, key=lambda x: x[0])
 
-    # -- context window (50 kb each side of the gene = 100 kb total) --
+    # -- context window (window bp each side of the gene) --
     goi_ref = next((g for g in genes if g[4] == center_locus_tag), None)
     if goi_ref is None:
         continue
-    ctx_start = goi_ref[0] - 50000
-    ctx_end = goi_ref[1] + 50000
+    ctx_start = goi_ref[0] - window
+    ctx_end = goi_ref[1] + window
     context_genes = [g for g in genes if ctx_start <= g[0] <= ctx_end]
     context_genes.sort(key=lambda x: x[0])
 
@@ -291,7 +300,7 @@ for pid in fasta_protein_ids:
         continue
 
     header = f"{taxid}|{species}|{strain}|{isolate}"
-    results.append((header, 120000, context_genes, center_locus_tag))
+    results.append((header, track_length, context_genes, center_locus_tag))
     print(f"  OK: {pid} -> {header} ({len(context_genes)} genes in context)")
 
 
@@ -322,7 +331,7 @@ with open(out_path, "w") as fout:
 
     if results:
         seen_headers: Dict[str, int] = {}
-        for header, window, context_genes, center_lt in results:
+        for header, track_len, context_genes, center_lt in results:
             seen_headers[header] = seen_headers.get(header, 0) + 1
             org_line = f"{header}|{seen_headers[header]}"
 
@@ -337,8 +346,8 @@ with open(out_path, "w") as fout:
             for g in context_genes:
                 start, end, strand, gene_name, locus_tag = g
                 color = genes_color_dic.get(gene_name, "#FFFFFF")
-                start_ref = start - start_goi + 50000
-                end_ref = end - start_goi + 50000
+                start_ref = start - start_goi + window
+                end_ref = end - start_goi + window
                 gene_size = abs(end_ref - start_ref)
                 head_arrow = (
                     300 if gene_size > 310
@@ -355,7 +364,7 @@ with open(out_path, "w") as fout:
                     f"{gene_name}|#000000|1|0.5|{hl}|{hr}"
                 )
 
-            fout.write(f"{org_line},{window},{','.join(entries)}\n")
+            fout.write(f"{org_line},{track_len},{','.join(entries)}\n")
 
 if results:
     print(f"\nWrote {len(results)} organism(s) to {out_path}")

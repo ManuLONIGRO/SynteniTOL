@@ -17,6 +17,7 @@ process generate_itol_files {
     conda run -n syntenitol python3 "${syntenyTaxOrg_script}" \
       --cogs "${cogs_csv}" \
       \${extra} \
+      --window ${params.window} \
       --reference_gene "${reference_gene}" \
       --genomic_context_data "${genomic_context_file}" \
       --organism_genes_tsv "${organism_genes_tsv}" \

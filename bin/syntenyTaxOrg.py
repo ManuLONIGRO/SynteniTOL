@@ -24,6 +24,7 @@ from color_palettes import categorical_colors
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--evalue", type=float, default=1e-5, help="E-value threshold for filtering")
+    parser.add_argument("--window", type=int, default=30000, help="Genomic context window in bp on each side of the reference gene (default: 30000)")
     # Either pass gene names directly or COG list; at least one must be provided
     parser.add_argument("--gene_list", type=str, nargs='*', default=None, help="List of genes/COGs of interest (space-separated)")
     parser.add_argument("--cogs", type=str, default=None, help="Comma-separated COG list, e.g., COG1152,COG1795")
@@ -84,6 +85,11 @@ args = parse_args()
 
 evalue_limit = args.evalue
 formatted_evalue = f"{evalue_limit:.0e}"
+
+window = args.window  # bp of context on each side of the reference gene
+# iTOL DATASET_ARROWS total length: twice the window plus ~20% headroom so that
+# gene arrows ending slightly beyond 2*window are never clipped/out of range.
+track_length = 2 * window * 6 // 5
 
 # Build gene list
 gene_list: List[str] = []
@@ -162,8 +168,8 @@ DATA
         for gene in genes:
             start, end, strand, gene_name, locus_tag = gene
             color = genes_color_dic.get(gene_name, "#FFFFFF")
-            start_reference = start - start_goi + 50000
-            end_reference = end - start_goi + 50000
+            start_reference = start - start_goi + window
+            end_reference = end - start_goi + window
             head_arrow = 300 if abs(end_reference - start_reference) > 310 else 200 if abs(end_reference - start_reference) > 210 else 100 if abs(end_reference - start_reference) > 110 else 30  # Short genes get smaller heads avoiding an error in iTOL
             # iTOL arrow direction is controlled by which side has a non-zero head width:
             # - head on the LEFT  => arrow points LEFT  (strand -1)
@@ -173,7 +179,7 @@ DATA
             gene_context.append(gene_entry_context)
 
         log_file.write(f"Context of {gene_of_interest} of {organism_name}\n{gene_context}\n\n")
-        f.write(f"{organism_name},120000,{','.join(gene_context)}\n")
+        f.write(f"{organism_name},{track_length},{','.join(gene_context)}\n")
 
 # ---------- Binary profiling ----------
 organism_gene_presence: Dict[str, Dict[str, str]] = {}

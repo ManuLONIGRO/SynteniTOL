@@ -116,6 +116,7 @@ nextflow run main.nf [OPTIONS]
 | `--gene_order`          | Optional comma-separated list defining the column order of `itol_profiling.txt` (e.g., `COG1795,COG1152`). Every gene must exist in `--cogs`/`--custom_hmm_profiles`; genes missing from the list are appended at the end in CLI order and a warning is printed (the run is not stopped). The synteny reference (`--query_profile`) is unaffected. |
 | `--color_by_group`      | Group COGs for coloring in iTOL (format: `COG1229-COG1029,COG2218`)                             |
 | `--no_taxonomy`         | Skip NCBI taxonomy lookup and taxonomic iTOL layers (domain/phylum/class)                      |
+| `--window`              | Genomic context window, in base pairs on **each side** of the reference gene, used for the synteny plots (default: `30000`; minimum: `5000`). |
 | `--only_fasta`          | Only generate `formatted_headers.fasta` and the tree; skip the synteny/HMM analysis and taxonomy. `--cogs` is not required with this flag; other analysis parameters (e.g. `--gene_order`, `--color_by_group`) are ignored with a warning. |
 | `--outdir`              | Output directory for results                                                                   |
 | `--help`                | Display help message                                                                           |
@@ -144,6 +145,8 @@ Before any process runs, the pipeline checks `--cogs` and `--custom_hmm_profiles
 
 COG identifiers must also match the format `COGXXXX` with `XXXX` from `0001` to `5950`; invalid IDs are rejected at startup.
 
+- **`--window`**: must be an integer number of base pairs `>= 5000`; smaller values (which would produce a context without meaningful neighbors) are rejected at startup.
+
 ### Examples
 
 **Basic usage:**
@@ -164,6 +167,16 @@ nextflow run main.nf \
     --inputFASTA proteins.faa \
     --cogs COG1152,COG1229,COG1029,COG2218 \
     --color_by_group "COG1229-COG1029,COG2218,COG1152"
+```
+
+**With a custom genomic context window (20 kb on each side of the reference gene):**
+
+```bash
+nextflow run main.nf \
+    -profile docker \
+    --inputFASTA proteins.faa \
+    --cogs COG1152,COG1795,COG2218 \
+    --window 20000
 ```
 
 **Only formatted headers (+ tree), no synteny/profiling:**
@@ -203,66 +216,70 @@ With `--only_fasta` the pipeline only downloads the referenced genomes, reformat
 
 ## Testing
 
-SynteniToL incluye un suite de tests en `tests/`:
+SynteniToL ships with a test suite in `tests/`:
 
-- **Tests de validación de CLI** (rápidos): `test_unknown_parameter.sh`,
+- **CLI validation tests** (fast): `test_unknown_parameter.sh`,
   `test_duplicate_cogs.sh`, `test_duplicate_custom_profiles.sh`,
-  `test_gene_order.sh`. Verifican que parámetros inválidos se rechacen antes
-  de correr el pipeline.
-- **Test de regresión** (`test_regression.sh`): re-ejecuta el comando exacto
-  del run estable `results/run_20260916_142328` (guardado en
-  `tests/test_result/test_run_command.txt`) contra el FASTA de prueba
-  `data/fwd/small_fwda_test` y compara los 6 archivos `itol_*.txt` resultantes
-  contra el golden de `tests/test_result/`.
+  `test_gene_order.sh`. They check that invalid parameters are rejected before
+  the pipeline starts.
+- **`--only_fasta` integration test** (`test_only_fasta.sh`): runs the real
+  pipeline with `--only_fasta` and checks that `formatted_headers.fasta` and the
+  tree are produced while no synteny/iTOL files are generated.
+- **Regression test** (`test_regression.sh`): re-runs the exact command from the
+  stable run `results/run_20260916_142328` (stored in
+  `tests/test_result/test_run_command.txt`) against the test FASTA
+  `data/fwd/small_fwda_test` and compares the 6 resulting `itol_*.txt` files
+  against the golden set in `tests/test_result/`.
 
-### Correr todos los tests
+### Run all tests
 
 ```bash
 tests/run_all_tests.sh
 ```
 
-Duración esperada total: **~13-14 min**. De ese tiempo, ~11 min corresponden a la
-regresión re-ejecutando el pipeline real (normal, no es un cuelgue); las
-validaciones de CLI tardan ~1-3 min y corren sin red.
+Expected total duration: **~13-14 min**. About 11 min of that is the regression
+re-running the real pipeline (this is normal, not a hang); the CLI validation
+tests take ~1-3 min and run without network access.
 
-Para saltar la regresión (validaciones de CLI solamente, ~1-3 min):
+To skip the regression (CLI validation only, ~1-3 min):
 
 ```bash
 tests/run_all_tests.sh --skip-regression
 ```
 
-Opciones válidas de `run_all_tests.sh`:
+Valid options for `run_all_tests.sh`:
 
-- `--skip-regression`: omite `test_regression.sh`.
-- `-h` / `--help`: muestra el uso y las opciones disponibles.
+- `--skip-regression`: skips `test_regression.sh`.
+- `-h` / `--help`: show usage and available options.
 
-Cualquier otra opción (p. ej. `--skip-regresion`, con typo) aborta la suite con
-exit 2 **antes de correr ningún test** y lista las opciones disponibles.
+Any other option (e.g. a typo like `--skip-regresion`) aborts the suite with
+exit 2 **before running any test** and lists the available options.
 
-### Solo el test de regresión
+### Regression test only
 
 ```bash
 tests/test_regression.sh
 ```
 
-Opciones válidas de `test_regression.sh`:
+Valid options for `test_regression.sh`:
 
-- `--outdir <path>`: directorio de salida del run nuevo (default
+- `--outdir <path>`: output directory for the new run (default
   `results/regression_<timestamp>`).
-- `-h` / `--help`: muestra el uso y las opciones disponibles.
+- `-h` / `--help`: show usage and available options.
 
-Cualquier opción desconocida, `--outdir` sin valor, o argumentos de más abortan
-el script con exit 2 antes de lanzar el pipeline.
+Any unknown option, `--outdir` without a value, or extra arguments abort the
+script with exit 2 before launching the pipeline.
 
-El run nuevo queda en `results/regression_<timestamp>/`. Si algo cambió:
+The new run is kept in `results/regression_<timestamp>/`. If anything changed:
 
-- Se imprime un `WARNING` y se escribe un diff detallado en
+- A `WARNING` is printed and a detailed diff is written to
   `results/regression_<timestamp>/itol_diff_report.txt`.
-- Comparalo contra el golden para decidir si el cambio corresponde a la última
-  implementación.
-- Si el cambio es intencional, regenerá el golden (ver `tests/test_result/readme.md`).
+- Compare it against the golden set to decide whether the change matches the
+  latest implementation.
+- If the change is intentional, regenerate the golden set (see
+  `tests/test_result/readme.md`).
 
-También podés comparar dos directorios manualmente, sin re-correr el pipeline:
+You can also compare two directories manually, without re-running the pipeline:
 
 ```bash
 python3 tests/compare_itol_results.py \
@@ -270,8 +287,8 @@ python3 tests/compare_itol_results.py \
     --current results/run_XXXXXX_YYYYYYYY
 ```
 
-La comparación normaliza el orden de las filas (el paralelismo de Nextflow no
-produce falsos cambios) y reporta diferencias de cabecera, genes y colores.
+The comparison normalizes row order (Nextflow parallelism does not produce false
+changes) and reports header, gene and color differences.
 
 ---
 

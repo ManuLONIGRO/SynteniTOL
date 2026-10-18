@@ -47,6 +47,7 @@ workflow {
         'color_by_group',
         'no_taxonomy',
         'only_fasta',
+        'window',
         'base_name',
         'evalue',
         'run_id',
@@ -91,6 +92,7 @@ workflow {
         --gene_order       Optional comma-separated list defining the column order of itol_profiling.txt. Genes must exist in --cogs/--custom_hmm_profiles; missing genes are appended in CLI order (warning printed)
         --color_by_group   Optional parameter to color by group in iTOL files. (e.g. COG1229-COG1029,COG2218,COG2037 COG1229 and COG1029 will be in the same color) 
         --no_taxonomy      Skip NCBI taxonomy lookup and taxonomic iTOL files (domain/phylum/class)
+        --window           Genomic context window in bp on each side of the reference gene (default: 30000, minimum: 5000)
         --evalue           E-value threshold used in search/filtering steps (default: 1e-10)
         --outdir           Output directory (default: results/run_<timestamp>)
         --help             Show this help message and exit
@@ -126,6 +128,13 @@ workflow {
 
     // Define evalue parameter channel
     def evalue = channel.value(params.evalue)
+
+    // Validate --window: bp of genomic context on each side of the reference
+    // gene. Must be a positive integer with a meaningful minimum.
+    def windowVal = (params.window?.toString() ==~ /\d+/) ? params.window.toString().toInteger() : null
+    if (windowVal == null || windowVal < 5000) {
+        error "${RED}Invalid --window '${params.window}'. It must be an integer number of base pairs >= 5000 (default: 30000).${RESET}"
+    }
 
     // Variables shared with the rest of the workflow (filled in the else
     // branch below). In --only_fasta mode they stay empty because the analysis

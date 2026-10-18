@@ -24,6 +24,7 @@ process generate_synteny_data {
 	  --input_dir "${genomes_dir}" \
 	  --cogs "${cogs_csv}" \
 	  --dataframe "${dataframe}" \
+	  --window ${params.window} \
 	  --out_prefix \${out_prefix} \
       --protein_to_organism_map_tsv "${protein_to_organism_map}" \
       --out_tsv df_complete.tsv \

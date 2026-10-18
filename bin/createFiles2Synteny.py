@@ -18,6 +18,7 @@ from Bio import SeqIO
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--evalue", type=float, default=1e-10, help="E-value threshold for filtering")
+parser.add_argument("--window", type=int, default=30000, help="Genomic context window in bp on each side of the reference gene (default: 30000)")
 parser.add_argument("--input_dir", type=str, required=True, help="Input directory containing .gbff files")
 parser.add_argument("--dataframe", type=str, required=True, help="Path to the dataframe TSV file")
 parser.add_argument("--out_prefix", type=str, required=True, help="Output prefix for generated files")
@@ -31,6 +32,7 @@ args = parser.parse_args()
 
 choose_evalue = args.evalue
 formatted_evalue = f"{choose_evalue:.0e}"  # scientific notation for filenames
+window = args.window  # bp of context on each side of the reference gene
 
 # Load dataframe and build lookups
 print(f"Reading dataframe from {args.dataframe}")
@@ -371,8 +373,8 @@ def context_goi(genes):
     if not goi:
         return genes
     goi_start, goi_end, _ = goi[0], goi[1], goi[2]
-    goi_context_upstream = goi_start - 50000
-    goi_context_downstream = goi_end + 50000
+    goi_context_upstream = goi_start - window
+    goi_context_downstream = goi_end + window
     context_genes = []
     for g in genes:
         start, end, strand, name, tag = g
