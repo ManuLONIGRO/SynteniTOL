@@ -18,7 +18,7 @@ include { extract_proteomes             } from './modules/extract_proteomes.nf'
 include { download_cogs                 } from './modules/download_cogs.nf'
 include { hmm_build_cogs                } from './modules/hmm_build_cogs.nf'
 include { hmm_search                    } from './modules/hmm_search.nf'
-include { map_ids_to_locustag           } from './modules/map_ids_to_locustag.nf'
+include { map_ids_to_locustag_by_genome  } from './modules/map_ids_to_locustag_by_genome.nf'
 include { merge_mappings                } from './modules/merge_mappings.nf'
 include { build_dataframe               } from './modules/build_dataframe.nf'
 include { generate_synteny_data         } from './modules/generate_synteny_data.nf'
@@ -247,7 +247,7 @@ workflow {
     get_taxonomy_info_script_ch         = channel.fromPath('bin/get_taxonomy_info.py')
     rename_gbff_script_ch               = channel.fromPath('bin/rename_gbff.py')
     gbff2prot_script_ch                 = channel.fromPath('bin/gbff2prot.py')
-    ids_locustag_mapping_script_ch      = channel.fromPath('bin/ids_locustag_mapping.py')
+    ids_locustag_mapping_by_genome_script_ch = channel.fromPath('bin/ids_locustag_mapping_by_genome.py')
     map_genes_to_tsv_script_ch          = channel.fromPath('bin/map_genes_to_tsv.py')
     createFiles2Synteny_script_ch       = channel.fromPath('bin/createFiles2Synteny.py')
     createFiles2Synteny_centered_on_fasta_script_ch = channel.fromPath('bin/createFiles2Synteny_centered_on_fasta.py')
@@ -348,13 +348,22 @@ workflow {
     separate_hmm_results        = hmm_search_results.flatMap { cog, files -> files.collect { f -> [cog, f] } }
 
     
-    mapping_hmm_results         = map_ids_to_locustag(
-                                    hmm_search_results
+    // Reagrupar por genoma: [genoma, [cogs], [result_files]] para parsear cada
+    // .gbff una sola vez (en vez de una vez por perfil).
+    results_by_genome           = separate_hmm_results
+                                    .map { cog, f ->
+                                        def gen = f.name.substring(0, f.name.length() - ("_" + cog + ".result").length())
+                                        [ gen, cog, f ]
+                                    }
+                                    .groupTuple(by: 0, size: all_gene_labels.size(), remainder: true)
+
+    mapping_hmm_results         = map_ids_to_locustag_by_genome(
+                                    results_by_genome
                                         .combine(all_genomes_dir)
-                                        .combine(ids_locustag_mapping_script_ch)
+                                        .combine(ids_locustag_mapping_by_genome_script_ch)
                                         .combine(evalue)).mapped_file
     mapping_files               = mapping_hmm_results
-                                    .map { _cog, files -> files }
+                                    .map { _genoma, files -> files }
                                     .flatten()
     mapping_batches             = mapping_files.collate(1000)
     partial_mapped              = merge_mappings(mapping_batches)
