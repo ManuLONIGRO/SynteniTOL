@@ -7,6 +7,12 @@ Copy pvc/scripts/itolTaxOrgIsoRep.py
 
 UPDATED for NEXTFLOW 22/10/2026
 
+Taxonomy ranks are written exactly as reported by NCBI: no rank is
+merged or renamed here (SynteniTOL stays taxon-agnostic).  Optional
+grouping of the Asgard phyla into a single "Promethearchaeati" category is
+done after the run with other_scripts/group_asgard_phyla.py, which is not
+part of the pipeline.
+
 @author: mlonigro
 """
 
@@ -69,48 +75,11 @@ for record in SeqIO.parse(fasta_file, "fasta"):
     dic_class[header] = tax.get("class", "NA")
 
 #-------------------------------------------------------------------------------------------------
-# Valores unicos 
-unique_values_phylum = list(set(dic_phylum.values())) #Contain desglosed groups of Asgard
-unique_values_domain = list(set(dic_domain.values()))
-unique_values_class = list(set(dic_class.values()))
-# Replace all the phylums of Asgard by 1 single name to not have so many in the tree
-
-# Phylums to be renamed
-phylums_to_replace = [
-    "Candidatus Heimdallarchaeota",
-    "Candidatus Odinarchaeota",
-    "Candidatus Thorarchaeota",
-    "Candidatus Baldrarchaeota",
-    "Candidatus Hermodarchaeota",
-    "Candidatus Hodarchaeota",
-    "Candidatus Helarchaeota",
-    "Candidatus Borrarchaeota",
-    "Candidatus Freyarchaeota", 
-    "Promethearchaeota",
-    "Candidatus Gerdarchaeota",
-    "Candidatus Sigynarchaeota",
-    "Candidatus Sifarchaeota",
-    "Candidatus Wukongarchaeota",
-    "Candidatus Kariarchaeota",
-    "Candidatus Njordarchaeota",
-    "Candidatus Idunnarchaeota",
-    "Candidatus Friggarchaeota",
-    "Candidatus Yidarchaeota",
-]
-
-# New name
-new_phylum = "Promethearchaeati"
-
-# Replace the values in the dictionary
-for species, phylum in dic_phylum.items():
-    if phylum in phylums_to_replace:
-        dic_phylum[species] = new_phylum
-    
-    elif phylum == "NOT_FOUND":
-        dic_phylum[species] = "Promethearchaeati"
-
-
-unique_values_phylum_sinAsgard = list(set(dic_phylum.values()))
+# Unique values per rank.  Labels are derived from the dictionaries that feed the DATA section, so
+# every rendered value is guaranteed to have a color in the legend (no blank/white strips).
+unique_values_phylum = sorted(set(dic_phylum.values()))
+unique_values_domain = sorted(set(dic_domain.values()))
+unique_values_class = sorted(set(dic_class.values()))
 
 
 def labels_and_colors(unique_values):
