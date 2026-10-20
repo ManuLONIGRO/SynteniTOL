@@ -2,8 +2,6 @@ process get_taxonomy_info {
     publishDir params.outdir, mode: 'copy'
     label 'retry_backoff'
 
-    secret 'NCBI_API_KEY'
-
     input:
         path all_accessions
         path get_taxonomy_info_script

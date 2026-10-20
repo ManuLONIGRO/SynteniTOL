@@ -129,11 +129,14 @@ To increase NCBI rate limits, provide your NCBI API key **without passing it on 
 # Option 1 (recommended): store it as a Nextflow secret
 nextflow secrets set NCBI_API_KEY "your_ncbi_api_key"
 
-# Option 2: export it in your shell before launching
+# Option 2: export it in your shell before launching (forwarded into the containers)
 export NCBI_API_KEY="your_ncbi_api_key"
 ```
 
-If no key is provided the pipeline still works, just with public NCBI rate limits (a slower sleep is used between taxonomy queries).
+- With **Option 1**, the secret is injected into the NCBI-facing processes at runtime and never appears in `.command.sh`, `run_command.txt`, `report.html` or `trace.txt`.
+- With **Option 2**, the key is passed into the Docker containers via a pass-through (`docker.runOptions = '-e NCBI_API_KEY'`), so its value is never written into any command line, report or trace file either.
+
+If no key is provided the pipeline still works, just with public NCBI rate limits (a slower sleep is used between taxonomy queries) and a warning is printed at startup.
 
 ### Input validation
 
