@@ -13,7 +13,9 @@ which no exact matching CDS is found are skipped with a warning.
 """
 
 import os
+import hashlib
 import argparse
+from collections import defaultdict
 from typing import Dict, List, Tuple
 
 from color_palettes import categorical_colors
@@ -172,20 +174,59 @@ print(f"  Color groups: {color_groups}")
 
 
 # ---------------------------------------------------------------------------
+def file_md5(path: str, chunk_size: int = 1024 * 1024) -> str:
+    """MD5 of the whole file, used to detect byte-identical genome copies."""
+    digest = hashlib.md5()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(chunk_size), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def unique_genome_files(input_dir: str) -> List[str]:
+    """
+    Paths of the .gbff files of the directory, skipping the byte-identical
+    copies of a genome. Several proteins of interest can point to the same
+    assembly, so the same genome can be present more than once. Only the files
+    whose size is shared with another file are read.
+    """
+    paths = [os.path.join(input_dir, f) for f in os.listdir(input_dir) if f.endswith(".gbff")]
+
+    by_size = defaultdict(list)
+    for path in paths:
+        by_size[os.path.getsize(path)].append(path)
+
+    duplicates = set()
+    for group in by_size.values():
+        if len(group) < 2:
+            continue
+        seen = set()
+        for path in group:
+            digest = file_md5(path)
+            if digest in seen:
+                duplicates.add(path)
+            else:
+                seen.add(digest)
+
+    if duplicates:
+        print(f"Duplicated genomes skipped: {len(duplicates)}")
+        paths = [p for p in paths if p not in duplicates]
+    return paths
+
+
 # STEP 3: Match protein_ids to CDS protein_id qualifiers in the .gbff files
 # ---------------------------------------------------------------------------
 print(f"Matching protein_ids to CDS protein_id qualifiers in {args.input_dir}")
-gbff_files = [f for f in os.listdir(args.input_dir) if f.endswith(".gbff")]
+gbff_files = unique_genome_files(args.input_dir)
 fasta_protein_set = set(fasta_protein_ids)
 
 # protein_id → (contig_genes, center_locus_tag, taxid, species, strain, isolate)
 matched: Dict[str, Tuple[List[Tuple], str, str, str, str, str]] = {}
 
-for gbff_name in gbff_files:
-    gbff_path = os.path.join(args.input_dir, gbff_name)
+for gbff_path in gbff_files:
     records = list(SeqIO.parse(gbff_path, "genbank"))
     if not records:
-        print(f"  WARNING: could not parse {gbff_name}, skipped")
+        print(f"  WARNING: could not parse {os.path.basename(gbff_path)}, skipped")
         continue
 
     for record in records:

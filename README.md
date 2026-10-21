@@ -80,6 +80,7 @@ results/run_timestamp/
 ├── itol_taxonomy_phylum.txt     # iTOL taxonomic info file: Phylums
 ├── tree_timestamp.nwk           # Phylogenetic tree
 ├── formatted_headers.fasta      # header format: protein_id|specie_name|strain|isolate
+├── genomes_deduplicated.tsv     # Audit of the deduplicated genomes (one row per assembly)
 ├── run_command.txt             # Reproducibility record
 ├── timeline.html               # Nextflow execution timeline
 ├── report.html                 # Nextflow execution report
@@ -149,6 +150,55 @@ Before any process runs, the pipeline checks `--cogs` and `--custom_hmm_profiles
 COG identifiers must also match the format `COGXXXX` with `XXXX` from `0001` to `5950`; invalid IDs are rejected at startup.
 
 - **`--window`**: must be an integer number of base pairs `>= 5000`; smaller values (which would produce a context without meaningful neighbors) are rejected at startup.
+
+### Genome deduplication
+
+The input FASTA usually contains several proteins of interest (paralogs) that belong to the **same genome**. The pipeline copies each genome only **once**, no matter how many proteins of interest point to it, so the genome is not extracted, searched and reported N times.
+
+The `genomes_deduplicated.tsv` file in the output directory reports what was merged (one row per assembly):
+
+| Column                    | Description                                                             |
+|---------------------------|-------------------------------------------------------------------------|
+| `assembly`                | Assembly accession                                                     |
+| `organism` / `isolate`    | Organism and isolate of the assembly                                   |
+| `status`                  | `copied` or `no_gbff` (assembly downloaded without a `.gbff` file)        |
+| `n_proteins_of_interest`  | Proteins of the input FASTA that point to this assembly                |
+| `n_copies_avoided`        | Redundant copies of the genome that were not created                   |
+| `genome_file`             | File kept in the genomes directory                                     |
+| `proteins_merged`         | Proteins of interest merged in that genome                             |
+| `copies_skipped`          | File names that were not created                                       |
+
+### Disk space (hard links)
+
+Every `.gbff` is stored **once** in `work/`. The downloaded assembly, the renamed
+genome and the merged `genomes_all` directory are **hard links** to the same
+inode, so merging the chunks of genomes does not duplicate the bytes:
+
+```bash
+# The same genome seen from the three places where it lives
+stat -c '%h %n' work/*/*/gbff_assemblies/ncbi_dataset/data/*/*.gbff   # 3 links
+```
+
+- If the hard link cannot be created (e.g. the files are on different
+  filesystems), the pipeline falls back to a normal copy, so the run always
+  completes. The log of every step reports how many hard links and how many
+  real copies were made.
+- The links only live inside `work/`: the genomes are not published to the
+  results directory.
+- The `.gbff` files are only read downstream (never modified in place), so
+  sharing the same inode is safe.
+- `bin/rename_gbff.py --no_hardlink` disables the hard links and always
+  copies (useful for debugging).
+
+Runs made **before** this change still store the genomes three times. The
+script `proximas_mejoras/deduplicar_work.py` converts the existing copies into
+hard links (it only replaces a file with a link to another file with exactly
+the same content):
+
+```bash
+python3 proximas_mejoras/deduplicar_work.py --dry-run   # sólo informa
+sudo python3 proximas_mejoras/deduplicar_work.py --apply   # aplica los enlaces
+```
 
 ### Examples
 

@@ -17,7 +17,9 @@ New insight: created locus_to_acc, with accuracy from mappings file, "acc" colum
 """
 
 import argparse
+import hashlib
 import os
+from collections import defaultdict
 from typing import Dict, Tuple, List
 from Bio import SeqIO
 
@@ -90,6 +92,33 @@ def iterate_genomes(genomes_dir: str):
         yield os.path.join(genomes_dir, name)
 
 
+def file_md5(path: str, chunk_size: int = 1024 * 1024) -> str:
+    """MD5 of the whole file, used to detect byte-identical genome copies."""
+    digest = hashlib.md5()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(chunk_size), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def compute_duplicate_candidates(gbff_paths: List[str]) -> Dict[str, str]:
+    """
+    MD5 of the genomes whose size is shared by more than one file. A genome
+    with a unique size cannot be a copy of another one, so it is not read.
+    """
+    by_size = defaultdict(list)
+    for path in gbff_paths:
+        by_size[os.path.getsize(path)].append(path)
+
+    hashes = {}
+    for paths in by_size.values():
+        if len(paths) < 2:
+            continue
+        for path in paths:
+            hashes[path] = file_md5(path)
+    return hashes
+
+
 def build_dataframe(genomes_dir: str,
                     id_to_locus: Dict[str, str],
                     locus_to_length: Dict[str, int],
@@ -101,10 +130,27 @@ def build_dataframe(genomes_dir: str,
                     ) -> None:
     locus_to_id = {v: k for k, v in id_to_locus.items()}
 
+    gbff_paths = list(iterate_genomes(genomes_dir))
+    # Safety net: the genomes are deduplicated in rename_gbff.py, but a stale
+    # work dir could still contain byte-identical copies of the same genome.
+    # Those copies are detected here to avoid repeating their rows.
+    hashes = compute_duplicate_candidates(gbff_paths)
+    seen_hashes = set()
+    seen_rows = set()
+    n_skipped_files = 0
+    n_skipped_rows = 0
+
     with open(out_tsv, "w") as out:
         out.write("taxid\tlocus_tag\tprotein_id\tgene\tevalue\tlength\taligned\tacc\n")
 
-        for gbff_path in iterate_genomes(genomes_dir):
+        for gbff_path in gbff_paths:
+            digest = hashes.get(gbff_path)
+            if digest is not None:
+                if digest in seen_hashes:
+                    n_skipped_files += 1
+                    continue
+                seen_hashes.add(digest)
+
             records = list(SeqIO.parse(gbff_path, "genbank"))
             if not records:
                 continue
@@ -141,9 +187,19 @@ def build_dataframe(genomes_dir: str,
                     evalue = float(locus_to_evalue.get(locus_tag, "NA"))
                     acc = locus_to_acc.get(locus_tag, "NA")
 
-                    out.write(
-                        f"{taxid}\t{locus_tag}\t{protein_id}\t{gene}\t{evalue}\t{length}\t{aligned}\t{acc}\n"
+                    row = (
+                        f"{taxid}\t{locus_tag}\t{protein_id}\t{gene}\t{evalue}\t"
+                        f"{length}\t{aligned}\t{acc}"
                     )
+                    if row in seen_rows:
+                        n_skipped_rows += 1
+                        continue
+                    seen_rows.add(row)
+                    out.write(row + "\n")
+
+    print(f"Genomes processed: {len(gbff_paths) - n_skipped_files} "
+          f"(duplicated genomes skipped: {n_skipped_files})")
+    print(f"Rows written: {len(seen_rows)} (repeated rows skipped: {n_skipped_rows})")
 
 def main():
     args = parse_args()

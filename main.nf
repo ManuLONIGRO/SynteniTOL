@@ -20,6 +20,7 @@ include { hmm_build_cogs                } from './modules/hmm_build_cogs.nf'
 include { hmm_search                    } from './modules/hmm_search.nf'
 include { map_ids_to_locustag_by_genome  } from './modules/map_ids_to_locustag_by_genome.nf'
 include { merge_mappings                } from './modules/merge_mappings.nf'
+include { merge_dedup_audit             } from './modules/merge_dedup_audit.nf'
 include { build_dataframe               } from './modules/build_dataframe.nf'
 include { generate_synteny_data         } from './modules/generate_synteny_data.nf'
 include { generate_synteny_centered_on_fasta } from './modules/generate_synteny_centered_on_fasta.nf'
@@ -312,17 +313,27 @@ workflow {
     */
     rename_no_assemblies_or_empty = file('empty_no_assemblies')
     
-    genomes_dir                 = rename_gbff_files(
+    rename_gbff_results            = rename_gbff_files(
                                     download_assemblies_results
                                         .combine(efetch_results.protein_to_organism_map)
                                         .combine(rename_gbff_script_ch)
                                 )
-    
+    // The process returns the 'genomes' dir and the audit of the genomes that
+    // were deduplicated (several proteins of interest can point to the same
+    // assembly, so the genome is copied only once).
+    genomes_dir                 = rename_gbff_results.map { result -> result[0] }
+    genomes_dedup_audit_files   = rename_gbff_results.map { result -> result[1] }
+
     
 
     all_genomes_dir             = merge_genome_directories(
                                     genomes_dir.collect(),              // val genomes_dirs (list of work/.../genomes paths)
                                     rename_no_assemblies_or_empty.collect()       // val genomes_no_assemblies_dir
+                                )
+
+    // Report of the deduplicated genomes (one row per assembly).
+    _genomes_dedup_audit         = merge_dedup_audit(
+                                    genomes_dedup_audit_files.collect()
                                 )
 
     formatted_fasta_ch          = reformat_fasta_headers(

@@ -9,6 +9,12 @@ resultantes contra los de este directorio.
 
 - Run estable: `results/run_20260916_142328` (16/09/2026).
 - Copiados el 17/09/2026 desde ese run.
+- Regenerados el 21/10/2026 desde `results/regression_20261021_142601`, tras la
+  deduplicacion de genomas (cada ensamblado se copia una sola vez, ver
+  `genomes_deduplicated.tsv`) y tras el cambio del parametro `--window`
+  (contexto de +-30 kb en lugar de los +-50 kb fijos de antes), que reduce el
+  numero de genes por hoja del arbol. Los ficheros de profiling y de taxonomia
+  no cambiaron.
 - Se usa el prefijo `test_` para que estos archivos no caigan bajo el patron
   `itol_*.txt` del `.gitignore` y puedan versionarse en git.
   El comparador mapea `test_itol_X.txt` (golden) -> `itol_X.txt` (run).

@@ -14,5 +14,9 @@ process merge_mappings {
         # grep returns 1 when no lines match (e.g. file contains only "no hits")
         grep -h -v "no hits" "\$f" >> "\$out_file" || true
     done
+
+    # Remove the repeated lines (a genome processed more than once produced the
+    # same mapping line once per copy). The order is preserved.
+    awk '!seen[\$0]++' "\$out_file" > "\$out_file".dedup && mv "\$out_file".dedup "\$out_file"
     """
 }

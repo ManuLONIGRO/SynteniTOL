@@ -9,6 +9,7 @@ Refactored for Nextflow: no multiprocessing, no hardcoded paths. Uses CLI args.
 """
 
 import os
+import hashlib
 import argparse
 from collections import defaultdict, Counter
 from typing import Dict, List, Tuple
@@ -302,8 +303,49 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
 
     return (header, best_contig_len, best_contig_genes)
 
+
+def file_md5(path: str, chunk_size: int = 1024 * 1024) -> str:
+    """MD5 of the whole file, used to detect byte-identical genome copies."""
+    digest = hashlib.md5()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(chunk_size), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def unique_genome_files(input_dir: str) -> List[str]:
+    """
+    Paths of the .gbff files of the directory, skipping the byte-identical
+    copies of a genome. Several proteins of interest can point to the same
+    assembly, so the same genome can be present more than once. Only the files
+    whose size is shared with another file are read.
+    """
+    paths = [os.path.join(input_dir, f) for f in os.listdir(input_dir) if f.endswith(".gbff")]
+
+    by_size = defaultdict(list)
+    for path in paths:
+        by_size[os.path.getsize(path)].append(path)
+
+    duplicates = set()
+    for group in by_size.values():
+        if len(group) < 2:
+            continue
+        seen = set()
+        for path in group:
+            digest = file_md5(path)
+            if digest in seen:
+                duplicates.add(path)
+            else:
+                seen.add(digest)
+
+    if duplicates:
+        print(f"Duplicated genomes skipped: {len(duplicates)}")
+        paths = [p for p in paths if p not in duplicates]
+    return paths
+
+
 # Sequential processing (Nextflow manages parallelism across tasks if needed)
-files = [os.path.join(args.input_dir, f) for f in os.listdir(args.input_dir) if f.endswith(".gbff")]
+files = unique_genome_files(args.input_dir)
 
 genomes_data_binary_raw = []
 for gbff in files:
