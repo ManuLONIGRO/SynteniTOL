@@ -137,7 +137,9 @@ export NCBI_API_KEY="your_ncbi_api_key"
 - With **Option 1**, the secret is injected into the NCBI-facing processes at runtime and never appears in `.command.sh`, `run_command.txt`, `report.html` or `trace.txt`.
 - With **Option 2**, the key is passed into the Docker containers via a pass-through (`docker.runOptions = '-e NCBI_API_KEY'`), so its value is never written into any command line, report or trace file either.
 
-If no key is provided the pipeline still works, just with public NCBI rate limits (a slower sleep is used between taxonomy queries) and a warning is printed at startup.
+If no key is provided the pipeline still works, just with public NCBI rate limits (a warning is printed at startup). The taxonomy lookup is batched: one `efetch` call per ~400 assemblies to map accession → taxid and one per ~300 taxids to fetch their lineages, so a run with thousands of genomes resolves in well under a minute. A failed batch is retried and split automatically, and any accession that still cannot be resolved is written as an `NA` row instead of aborting the run.
+
+The key is never written to the command line, `run_command.txt`, `report.html` or `trace.txt`. In addition, `edirect` echoes the full request URL on transient `curl` errors; `get_taxonomy_info` masks `api_key=...` before that output reaches `.command.log`.
 
 ### Input validation
 
