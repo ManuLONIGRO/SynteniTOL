@@ -122,6 +122,13 @@ def assign_colors(
 
 
 def clean_metadata(value: str) -> str:
+    """Make a GenBank qualifier safe for the pipe-delimited header and the
+    comma-delimited iTOL datasets.
+
+    iTOL CSV has no quoting, so a comma in the strain/species would add
+    phantom fields to every dataset built from this header; a pipe would
+    break the taxid|species|strain|isolate layout used across the pipeline.
+    """
     return (
         value.replace(" ", "_")
         .replace(";", "_")
@@ -129,6 +136,8 @@ def clean_metadata(value: str) -> str:
         .replace("=", "_")
         .replace("(", "_")
         .replace(")", "_")
+        .replace(",", "_")
+        .replace("|", "_")
     )
 
 

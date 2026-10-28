@@ -61,6 +61,26 @@ def parse_cogs(cogs_str: str) -> List[str]:
         return []
     return [c.strip() for c in cogs_str.split(',') if c.strip()]
 
+
+def clean_metadata(value: str) -> str:
+    """Make a GenBank qualifier safe for the pipe-delimited header and the
+    comma-delimited iTOL datasets.
+
+    iTOL CSV has no quoting, so a comma in the strain/species would add
+    phantom fields to every dataset built from this header; a pipe would
+    break the taxid|species|strain|isolate layout used across the pipeline.
+    """
+    return (
+        value.replace(" ", "_")
+        .replace(";", "_")
+        .replace(":", "_")
+        .replace("=", "_")
+        .replace("(", "_")
+        .replace(")", "_")
+        .replace(",", "_")
+        .replace("|", "_")
+    )
+
 # gene_list: List[str] = []
 # if args.gene_list:
 #     gene_list = list(args.gene_list)
@@ -245,9 +265,9 @@ def process_gbff(input_file: str, locus_to_gene: Dict[str, str], locus_goi_set: 
         for feature in record.features:
             if feature.type == "source":
                 db_xrefs = feature.qualifiers.get("db_xref", [])
-                local_isolate = feature.qualifiers.get("isolate", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
-                local_strain = feature.qualifiers.get("strain", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
-                local_species = feature.qualifiers.get("organism", ["NA"])[0].replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
+                local_isolate = clean_metadata(feature.qualifiers.get("isolate", ["NA"])[0])
+                local_strain = clean_metadata(feature.qualifiers.get("strain", ["NA"])[0])
+                local_species = clean_metadata(feature.qualifiers.get("organism", ["NA"])[0])
                 for xref in db_xrefs:
                     if xref.startswith("taxon:"):
                         local_taxid = xref.split(":")[1]

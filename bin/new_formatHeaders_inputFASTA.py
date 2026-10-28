@@ -27,7 +27,17 @@ output_fasta = args.output_fasta
 genomes_dir = args.genomes_dir
 
 def normalize(value):
-    return (value or "NA").replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
+    return (
+        (value or "NA")
+        .replace(" ", "_")
+        .replace(";", "_")
+        .replace(":", "_")
+        .replace("=", "_")
+        .replace("(", "_")
+        .replace(")", "_")
+        .replace(",", "_")
+        .replace("|", "_")
+    )
 
 # Get the protein_id from the fasta file. Format is >protein_id:other info
 protein_ids = []
@@ -110,9 +120,9 @@ with open(input_fasta, "r") as infile, open(output_fasta, "w") as outfile:
             if protein_id in protein_id_to_info:
                 info = protein_id_to_info[protein_id]
                 taxid = info.get("taxid", "")
-                species_name = info.get("organism", "NA").replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
-                strain = info.get("strain", "NA").replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
-                isolate = info.get("isolate", "NA").replace(" ", "_").replace(";","_").replace(":","_").replace("=","_").replace("(","_").replace(")","_")
+                species_name = normalize(info.get("organism", "NA"))
+                strain = normalize(info.get("strain", "NA"))
+                isolate = normalize(info.get("isolate", "NA"))
 
                 # Count repetitions
                 header = f">{taxid}|{species_name}|{strain}|{isolate}"

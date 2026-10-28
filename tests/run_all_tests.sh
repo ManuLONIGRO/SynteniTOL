@@ -6,6 +6,7 @@ set -uo pipefail
 #   - test_duplicate_cogs.sh           (CLI validation)
 #   - test_duplicate_custom_profiles.sh (CLI validation)
 #   - test_gene_order.sh               (CLI validation, ~1-3 min)
+#   - test_itol_profiling_commas.sh    (unit: comma inside an organism key)
 #   - test_only_fasta.sh               (integration: --only_fasta mode, downloads genomes, no synteny/profiling)
 #   - test_regression.sh               (golden reference comparison, FULL pipeline ~11 min)
 #
@@ -56,6 +57,7 @@ VALIDATION_TESTS=(
     test_duplicate_cogs.sh
     test_duplicate_custom_profiles.sh
     test_gene_order.sh
+    test_itol_profiling_commas.sh
 )
 
 declare -a RESULTS=()
